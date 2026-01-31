@@ -24,7 +24,6 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? 'http://localhost:3000,ht
   .filter(Boolean);
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
     return callback(new Error('Not allowed by CORS'));
   }
@@ -49,7 +48,7 @@ const PUBLIC_URL = process.env.PUBLIC_URL;
 const BACKEND_API_KEY = process.env.BACKEND_API_KEY;
 const TWILIO_VALIDATE_WEBHOOKS = process.env.TWILIO_VALIDATE_WEBHOOKS !== 'false';
 const TWILIO_TWIML_URL = process.env.TWILIO_TWIML_URL;
-const PHONE_REGEX = /^\+?[1-9]\d{1,14}$/;
+const PHONE_REGEX = /^\+[1-9]\d{1,14}$/;
 
 const isValidApiKey = (providedKey) => {
   if (!BACKEND_API_KEY || !providedKey) return false;
@@ -91,7 +90,7 @@ const validateTwilioRequest = (req, res, next) => {
 
 const validatePhone = (value) => PHONE_REGEX.test(value || '');
 
-const validateCallId = (value) => typeof value === 'string' && value.length > 0;
+const validateCallId = (value) => /^CA[0-9a-f]{32}$/i.test(value || '');
 
 if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
   console.warn('Twilio credentials are not configured. Set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN.');
