@@ -74,17 +74,24 @@ That's it! The build system handles everything else automatically.
 
 ### "AAPT2 Daemon startup failed"
 
-This error occurs when AAPT2 is not installed or not compatible. Solution:
+This error occurs when AAPT2 is not installed or not compatible. 
 
-```bash
-pkg install aapt2
-```
+**Solution:**
 
-Then verify it's installed correctly:
-```bash
-file /data/data/com.termux/files/usr/bin/aapt2
-# Should show: ELF 64-bit LSB executable, ARM aarch64
-```
+1. **Install ARM64-compatible AAPT2:**
+   ```bash
+   pkg install aapt2
+   ```
+
+2. **Verify installation:**
+   ```bash
+   file /data/data/com.termux/files/usr/bin/aapt2
+   # Should show: ELF 64-bit LSB executable, ARM aarch64
+   ```
+
+3. **The AAPT2 override is now enabled by default** in `android/gradle.properties` to prevent this error. If you still encounter issues, verify that the file exists and is executable.
+
+**Note:** The gradle.properties file now has the AAPT2 override uncommented by default. This ensures builds work in Termux without manual configuration. The build system will use the Termux AAPT2 if it exists, or fall back to the default behavior otherwise.
 
 ### Build is very slow
 
@@ -113,13 +120,20 @@ If you get out of memory errors during build:
 
 ### Manual AAPT2 Override
 
-If the automatic detection doesn't work, you can manually configure it:
+The AAPT2 override is **already enabled** in `android/gradle.properties` to fix AAPT2 daemon startup failures.
+
+If you need to change the AAPT2 location:
 
 1. Edit `android/gradle.properties`
-2. Uncomment and modify the line:
+2. Modify the line:
    ```properties
-   android.aapt2FromMavenOverride=/data/data/com.termux/files/usr/bin/aapt2
+   android.aapt2FromMavenOverride=/path/to/your/aapt2
    ```
+
+To disable the override (e.g., when building on a desktop), comment out the line:
+```properties
+#android.aapt2FromMavenOverride=/data/data/com.termux/files/usr/bin/aapt2
+```
 
 ## Performance Considerations
 
