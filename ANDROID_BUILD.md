@@ -42,6 +42,14 @@ setx JAVA_HOME "C:\Program Files\Java\jdk-17"
 
 ## Build Steps
 
+**Important:** All npm commands must be run from the project root directory. Navigate to the project directory first:
+
+```bash
+cd aisec
+```
+
+If you receive an error like `npm error code ENOENT` or `Could not read package.json`, you are not in the correct directory.
+
 ### 1. Install Dependencies
 
 ```bash
@@ -145,6 +153,17 @@ Or simply copy the APK file to your device and open it to install.
 | `npm run android:build` | Build release APK (requires signing) |
 
 ## Troubleshooting
+
+### "Could not read package.json" or "npm error code ENOENT"
+- This error means you're not in the project directory
+- Navigate to the project directory first:
+  ```bash
+  cd aisec
+  ```
+- Verify you're in the correct directory:
+  ```bash
+  ls package.json  # Should show the file exists
+  ```
 
 ### "JAVA_HOME is not set"
 - Make sure you have JDK 17+ installed
