@@ -56,11 +56,14 @@ if (aapt2Override) {
     if (aapt2File.exists()) {
         logger.lifecycle("Using custom AAPT2 from gradle.properties: ${aapt2Override}")
         logger.lifecycle("AAPT2 binary found and will be used for this build")
-    } else {
+    } else if (isTermux) {
+        // Only show error in Termux environment where AAPT2 is actually needed
         logger.error("AAPT2 override configured in gradle.properties but binary not found!")
         logger.error("Expected location: ${aapt2Override}")
         logger.error("Please install AAPT2 using: pkg install aapt2")
-        logger.error("Or comment out the android.aapt2FromMavenOverride line in gradle.properties")
+    } else {
+        // On desktop, silently fall back to bundled AAPT2
+        logger.info("AAPT2 override configured but not found, using bundled AAPT2")
     }
 } else if (isTermux) {
     // Fallback: auto-detect Termux and warn if AAPT2 not installed
