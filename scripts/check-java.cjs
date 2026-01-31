@@ -12,8 +12,13 @@ function checkJavaVersion() {
   
   try {
     // Try to get Java version
+    // Note: 'java -version' outputs to stderr, so we redirect it to stdout with 2>&1
     const javaVersion = execSync('java -version 2>&1', { encoding: 'utf8' });
-    const versionMatch = javaVersion.match(/version "(\d+)\.?(\d+)?/);
+    
+    // Handle both old format (1.8.0_xxx) and new format (17.0.1, 21.0.2, etc.)
+    // Old format: "1.8.0_xxx" -> extracts 8
+    // New format: "17.0.1" -> extracts 17
+    const versionMatch = javaVersion.match(/version "(?:1\.)?(\d+)/);
     
     if (versionMatch) {
       const majorVersion = parseInt(versionMatch[1], 10);
