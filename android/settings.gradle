@@ -34,7 +34,7 @@ if (javaVersionMajor < 17) {
     ║                                                                               ║
     ║  ⚡ AUTO-FIX: Gradle will automatically download and use JDK 17               ║
     ║                                                                               ║
-    ║  Gradle 8.9 does not support Java ${javaVersionMajor}. The build will use JDK 17 via      ║
+    ║  Gradle 8.9 does not support Java ${javaVersionMajor}. The build will use JDK 17 via
     ║  Gradle's Java Toolchain feature. First build may take longer.               ║
     ║                                                                               ║
     ║  To permanently fix: Install JDK 17 or 21 and set JAVA_HOME                  ║
