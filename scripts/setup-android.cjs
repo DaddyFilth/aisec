@@ -54,7 +54,7 @@ function setupAndroidSDK() {
     const normalizedPath = sdkPath.replace(/\\/g, '/');
     
     // Create local.properties file
-    const content = `## This file must *NOT* be checked into Version Control Systems,
+    const content = `# This file must *NOT* be checked into Version Control Systems,
 # as it contains information specific to your local configuration.
 #
 # Location of the android SDK. This is only read by Gradle.
