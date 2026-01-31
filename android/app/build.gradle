@@ -44,6 +44,15 @@ dependencies {
 
 apply from: 'capacitor.build.gradle'
 
+// Override Java version from capacitor.build.gradle to ensure compatibility
+// Capacitor may generate VERSION_21 but Gradle 8.11.1 requires VERSION_17
+android {
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
 try {
     def servicesJSON = file('google-services.json')
     if (servicesJSON.text) {
