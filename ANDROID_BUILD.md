@@ -254,7 +254,7 @@ For Termux builds only:
 - This approach prevents build failures in non-Termux environments while still supporting Termux builds
 - The build configuration also provides helpful error messages if AAPT2 is not installed in Termux
 
-**Note:** If you're building on a desktop/CI and encounter AAPT2 errors, ensure the override line in `android/gradle.properties` is commented out:
+**Note:** The override is commented out by default. If you encounter AAPT2-related errors on desktop/CI builds, verify that the line remains commented out in `android/gradle.properties`:
 ```properties
 #android.aapt2FromMavenOverride=/data/data/com.termux/files/usr/bin/aapt2
 ```

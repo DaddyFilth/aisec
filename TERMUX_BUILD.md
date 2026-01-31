@@ -93,7 +93,7 @@ This error occurs when AAPT2 is not installed or not compatible.
    # Should show: ELF 64-bit LSB executable, ARM aarch64
    ```
 
-3. **The AAPT2 override is now enabled by default** in `android/gradle.properties` to prevent this error. If you still encounter issues, verify that the file exists and is executable.
+3. **Uncomment the AAPT2 override** in `android/gradle.properties` to enable it for Termux builds. See the "Manual AAPT2 Override" section below for details.
 
 **Note:** The AAPT2 override in gradle.properties is commented out by default to prevent issues on desktop/CI environments. When building in Termux, you need to uncomment the override line after installing AAPT2. This ensures builds work correctly in both Termux and desktop environments.
 
