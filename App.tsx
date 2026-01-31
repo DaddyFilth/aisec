@@ -3,10 +3,12 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { GoogleGenAI, Modality, LiveServerMessage } from '@google/genai';
 import { CallStatus, CallLog, SecretaryConfig, Contact } from './types';
 import { createBlob, decode, decodeAudioData } from './utils/audio-utils';
+import { Capacitor } from '@capacitor/core';
 
 const App: React.FC = () => {
   // --- State ---
   const [status, setStatus] = useState<CallStatus>(CallStatus.IDLE);
+  const [microphonePermission, setMicrophonePermission] = useState<'granted' | 'denied' | 'prompt'>('prompt');
   const [config, setConfig] = useState<SecretaryConfig>({
     ownerName: 'Alex',
     forwardingNumber: '+1 (555) 012-3456',
@@ -147,6 +149,58 @@ const App: React.FC = () => {
     setTranscription(prev => [...prev, { timestamp, role, text, type }]);
   }, []);
 
+  // --- Microphone Permission Handling ---
+  const requestMicrophonePermission = async (): Promise<boolean> => {
+    try {
+      // Check if we're on a native platform
+      if (Capacitor.isNativePlatform()) {
+        // On Android/iOS, request permission through browser's getUserMedia
+        // which will trigger the native permission dialog
+        addConsoleLine('SYSTEM', 'Requesting microphone access...', 'info');
+      }
+      
+      // Request permission via browser API (works on both web and native)
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      // Close the stream immediately, we just needed to check permission
+      stream.getTracks().forEach(track => track.stop());
+      
+      setMicrophonePermission('granted');
+      addConsoleLine('SYSTEM', 'Microphone access granted.', 'info');
+      return true;
+    } catch (error: any) {
+      setMicrophonePermission('denied');
+      if (error.name === 'NotAllowedError') {
+        addConsoleLine('ERROR', 'Microphone permission denied. Please grant permission in settings.', 'system');
+      } else if (error.name === 'NotFoundError') {
+        addConsoleLine('ERROR', 'No microphone found. Please connect a microphone device.', 'system');
+      } else {
+        addConsoleLine('ERROR', `Microphone error: ${error.message}`, 'system');
+      }
+      return false;
+    }
+  };
+
+  // Check microphone permission status on mount
+  useEffect(() => {
+    const checkPermission = async () => {
+      if (navigator.permissions && navigator.permissions.query) {
+        try {
+          const result = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+          setMicrophonePermission(result.state as 'granted' | 'denied' | 'prompt');
+          
+          result.addEventListener('change', () => {
+            setMicrophonePermission(result.state as 'granted' | 'denied' | 'prompt');
+          });
+        } catch (err) {
+          // Permissions API not supported, will request on first use
+          console.log('Permissions API not supported');
+        }
+      }
+    };
+    checkPermission();
+  }, []);
+
   // --- Status UI Config ---
   const statusConfig = useMemo(() => {
     switch (status) {
@@ -247,6 +301,14 @@ const App: React.FC = () => {
   }, [endSession, addConsoleLine]);
 
   const startCall = async () => {
+    // Request microphone permission if not already granted
+    if (microphonePermission !== 'granted') {
+      const permissionGranted = await requestMicrophonePermission();
+      if (!permissionGranted) {
+        return; // Exit if permission denied
+      }
+    }
+
     const callId = Math.random().toString(36).substring(7).toUpperCase();
     const callerNumber = `+1 (${Math.floor(Math.random()*900)+100}) ${Math.floor(Math.random()*900)+100}-${Math.floor(Math.random()*9000)+1000}`;
     
@@ -267,8 +329,8 @@ const App: React.FC = () => {
     setActiveCallId(callId);
     setTranscription([]);
     setStatus(CallStatus.SCREENING);
-    addConsoleLine('SYSTEM', `Incoming call detected from ${matchedContact?.name || callerNumber}${matchedContact?.isVip ? ' [VIP]' : ''}`, 'system');
-    addConsoleLine('SYSTEM', 'Initializing Gemini Live screening protocol...', 'info');
+    addConsoleLine('SYSTEM', `Incoming call from ${matchedContact?.name || callerNumber}${matchedContact?.isVip ? ' [VIP]' : ''}`, 'system');
+    addConsoleLine('SYSTEM', 'AI Secretary initializing...', 'info');
 
     // Determine Time of Day Greeting
     const hour = new Date().getHours();
@@ -624,13 +686,39 @@ const App: React.FC = () => {
                 <div className="flex-1 p-6 font-mono text-xs overflow-y-auto scrollbar-hide space-y-2 bg-slate-950/20 relative">
                   {status === CallStatus.IDLE ? (
                     <div className="h-full flex flex-col items-center justify-center text-center space-y-6 opacity-60">
-                       <i className="fa-solid fa-radar text-4xl text-slate-700 animate-spin-slow"></i>
+                       <i className="fa-solid fa-shield-halved text-4xl text-slate-700"></i>
                        <div className="space-y-2">
-                          <p className="font-black uppercase tracking-[0.2em] text-slate-500">System Monitoring Active</p>
-                          <p className="text-[10px] max-w-xs text-slate-600">Standing by for voice packet triggers or external line stimulation.</p>
+                          <p className="font-black uppercase tracking-[0.2em] text-slate-500">AI Secretary Ready</p>
+                          <p className="text-[10px] max-w-xs text-slate-600">
+                            {microphonePermission === 'granted' 
+                              ? 'Ready to screen incoming calls with AI-powered assistance.'
+                              : 'Microphone access required to screen calls. Click below to grant permission.'}
+                          </p>
                        </div>
-                       <button onClick={startCall} className="px-8 py-3 bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 hover:bg-indigo-600 hover:text-white rounded-xl font-black uppercase tracking-widest transition-all shadow-indigo-500/10">
-                         Force Receive Call
+                       <button 
+                         onClick={startCall} 
+                         className={`px-8 py-3 border rounded-xl font-black uppercase tracking-widest transition-all shadow-indigo-500/10 flex items-center gap-2 ${
+                           microphonePermission === 'denied' 
+                             ? 'bg-red-600/10 border-red-500/20 text-red-400 hover:bg-red-600 hover:text-white'
+                             : 'bg-indigo-600/10 border-indigo-500/20 text-indigo-400 hover:bg-indigo-600 hover:text-white'
+                         }`}
+                       >
+                         {microphonePermission === 'granted' ? (
+                           <>
+                             <i className="fa-solid fa-phone-volume"></i>
+                             Start AI Secretary
+                           </>
+                         ) : microphonePermission === 'denied' ? (
+                           <>
+                             <i className="fa-solid fa-microphone-slash"></i>
+                             Grant Microphone Access
+                           </>
+                         ) : (
+                           <>
+                             <i className="fa-solid fa-microphone"></i>
+                             Enable Call Screening
+                           </>
+                         )}
                        </button>
                     </div>
                   ) : (
