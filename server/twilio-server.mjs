@@ -4,7 +4,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import multer from 'multer';
-import twilio from 'twilio';
+import signalwire from '@signalwire/compatibility-api';
 import { WebSocketServer } from 'ws';
 import { callOllama } from './ollama-client.mjs';
 import { fetchChatHistory, sendChatMessage } from './anythingllm-client.mjs';
@@ -36,9 +36,10 @@ app.use((_req, res, next) => {
 });
 
 const PORT = process.env.PORT || 8080;
-const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
-const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
-const TWILIO_CALLER_ID = process.env.TWILIO_CALLER_ID;
+const SIGNALWIRE_PROJECT_ID = process.env.SIGNALWIRE_PROJECT_ID;
+const SIGNALWIRE_API_TOKEN = process.env.SIGNALWIRE_API_TOKEN;
+const SIGNALWIRE_SPACE_URL = process.env.SIGNALWIRE_SPACE_URL;
+const SIGNALWIRE_CALLER_ID = process.env.SIGNALWIRE_CALLER_ID;
 const OLLAMA_API_URL = process.env.OLLAMA_API_URL;
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.1';
 const ANYTHINGLLM_API_URL = process.env.ANYTHINGLLM_API_URL;
@@ -46,8 +47,8 @@ const ANYTHINGLLM_API_KEY = process.env.ANYTHINGLLM_API_KEY;
 const ANYTHINGLLM_WORKSPACE_SLUG = process.env.ANYTHINGLLM_WORKSPACE_SLUG;
 const PUBLIC_URL = process.env.PUBLIC_URL;
 const BACKEND_API_KEY = process.env.BACKEND_API_KEY;
-const TWILIO_VALIDATE_WEBHOOKS = process.env.TWILIO_VALIDATE_WEBHOOKS !== 'false';
-const TWILIO_TWIML_URL = process.env.TWILIO_TWIML_URL;
+const SIGNALWIRE_VALIDATE_WEBHOOKS = process.env.SIGNALWIRE_VALIDATE_WEBHOOKS !== 'false';
+const SIGNALWIRE_TWIML_URL = process.env.SIGNALWIRE_TWIML_URL;
 const PHONE_REGEX = /^\+[1-9]\d{1,14}$/;
 
 const isValidApiKey = (providedKey) => {
@@ -72,32 +73,32 @@ const requireApiKey = (req, res, next) => {
   return next();
 };
 
-const validateTwilioRequest = (req, res, next) => {
-  if (!TWILIO_VALIDATE_WEBHOOKS) return next();
-  if (!TWILIO_AUTH_TOKEN) {
-    return res.status(500).send('Twilio auth token not configured');
+const validateSignalWireRequest = (req, res, next) => {
+  if (!SIGNALWIRE_VALIDATE_WEBHOOKS) return next();
+  if (!SIGNALWIRE_API_TOKEN) {
+    return res.status(500).send('SignalWire API token not configured');
   }
-  const signature = req.headers['x-twilio-signature'];
+  const signature = req.headers['x-signalwire-signature'] || req.headers['x-twilio-signature'];
   const url = PUBLIC_URL
     ? `${PUBLIC_URL}${req.originalUrl}`
     : `${req.protocol}://${req.headers.host}${req.originalUrl}`;
-  const isValid = twilio.validateRequest(TWILIO_AUTH_TOKEN, signature, url, req.body);
+  const isValid = signalwire.validateRequest(SIGNALWIRE_API_TOKEN, signature, url, req.body);
   if (!isValid) {
-    return res.status(403).send('Invalid Twilio signature');
+    return res.status(403).send('Invalid SignalWire signature');
   }
   return next();
 };
 
 const validatePhone = (value) => PHONE_REGEX.test(value || '');
 
-const validateCallId = (value) => /^CA[0-9a-f]{32}$/i.test(value || '');
+const validateCallId = (value) => /^(CA[0-9a-f]{32}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.test(value || '');
 
-if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
-  console.warn('Twilio credentials are not configured. Set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN.');
+if (!SIGNALWIRE_PROJECT_ID || !SIGNALWIRE_API_TOKEN || !SIGNALWIRE_SPACE_URL) {
+  console.warn('SignalWire credentials are not configured. Set SIGNALWIRE_PROJECT_ID, SIGNALWIRE_API_TOKEN, and SIGNALWIRE_SPACE_URL.');
 }
 
-const twilioClient = TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN
-  ? twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+const signalwireClient = SIGNALWIRE_PROJECT_ID && SIGNALWIRE_API_TOKEN && SIGNALWIRE_SPACE_URL
+  ? signalwire(SIGNALWIRE_PROJECT_ID, SIGNALWIRE_API_TOKEN, { signalwireSpaceUrl: SIGNALWIRE_SPACE_URL })
   : null;
 
 const server = createServer(app);
@@ -143,14 +144,14 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
 
-app.post('/twilio/voice', validateTwilioRequest, async (req, res) => {
-  const response = new twilio.twiml.VoiceResponse();
+app.post('/signalwire/voice', validateSignalWireRequest, async (req, res) => {
+  const response = new signalwire.twiml.VoiceResponse();
   const caller = req.body.From || 'Unknown caller';
   const callSid = req.body.CallSid || `call-${Date.now()}`;
   broadcast({ type: 'call.start', callId: callSid, from: caller });
   response.gather({
     input: 'speech',
-    action: '/twilio/voice/handle',
+    action: '/signalwire/voice/handle',
     method: 'POST',
     speechTimeout: 'auto',
     language: 'en-US'
@@ -161,8 +162,8 @@ app.post('/twilio/voice', validateTwilioRequest, async (req, res) => {
   res.send(response.toString());
 });
 
-app.post('/twilio/voice/handle', validateTwilioRequest, async (req, res) => {
-  const response = new twilio.twiml.VoiceResponse();
+app.post('/signalwire/voice/handle', validateSignalWireRequest, async (req, res) => {
+  const response = new signalwire.twiml.VoiceResponse();
   const transcript = req.body.SpeechResult || '';
   const caller = req.body.From || 'Unknown caller';
   const callSid = req.body.CallSid || `call-${Date.now()}`;
@@ -215,9 +216,9 @@ app.post('/twilio/voice/handle', validateTwilioRequest, async (req, res) => {
     broadcast({ type: 'handoff', callId: callSid });
 
     response.say(assistantReply);
-    response.redirect('/twilio/voice/hold');
+    response.redirect('/signalwire/voice/hold');
   } catch (error) {
-    console.error('Twilio handler error:', error);
+    console.error('SignalWire handler error:', error);
     response.say('We encountered a system error. Please try again later.');
     response.hangup();
   }
@@ -226,10 +227,10 @@ app.post('/twilio/voice/handle', validateTwilioRequest, async (req, res) => {
   res.send(response.toString());
 });
 
-app.post('/twilio/voice/hold', validateTwilioRequest, (_req, res) => {
-  const response = new twilio.twiml.VoiceResponse();
+app.post('/signalwire/voice/hold', validateSignalWireRequest, (_req, res) => {
+  const response = new signalwire.twiml.VoiceResponse();
   response.pause({ length: 60 });
-  response.redirect('/twilio/voice/hold');
+  response.redirect('/signalwire/voice/hold');
   res.type('text/xml');
   res.send(response.toString());
 });
@@ -310,84 +311,84 @@ app.post('/api/anythingllm/documents', requireApiKey, upload.single('file'), asy
   }
 });
 
-app.post('/api/twilio/outbound', requireApiKey, async (req, res) => {
-  if (!twilioClient) {
-    return res.status(500).json({ error: 'Twilio client not configured' });
+app.post('/api/signalwire/outbound', requireApiKey, async (req, res) => {
+  if (!signalwireClient) {
+    return res.status(500).json({ error: 'SignalWire client not configured' });
   }
   const { to } = req.body || {};
   if (!to) {
     return res.status(400).json({ error: 'to is required' });
   }
-  if (!validatePhone(to) || !TWILIO_TWIML_URL) {
-    return res.status(400).json({ error: 'Invalid destination or TwiML URL not configured' });
+  if (!validatePhone(to) || !SIGNALWIRE_TWIML_URL) {
+    return res.status(400).json({ error: 'Invalid destination or LaML URL not configured' });
   }
   try {
-    const call = await twilioClient.calls.create({
+    const call = await signalwireClient.calls.create({
       to,
-      from: TWILIO_CALLER_ID,
-      url: TWILIO_TWIML_URL
+      from: SIGNALWIRE_CALLER_ID,
+      url: SIGNALWIRE_TWIML_URL
     });
     res.json({ sid: call.sid });
   } catch (error) {
-    console.error('Twilio outbound error:', error);
+    console.error('SignalWire outbound error:', error);
     res.status(500).json({ error: 'Failed to start outbound call' });
   }
 });
 
-app.post('/api/twilio/answer', requireApiKey, async (req, res) => {
-  if (!twilioClient) {
-    return res.status(500).json({ error: 'Twilio client not configured' });
+app.post('/api/signalwire/answer', requireApiKey, async (req, res) => {
+  if (!signalwireClient) {
+    return res.status(500).json({ error: 'SignalWire client not configured' });
   }
   const { callId, to } = req.body || {};
   if (!validateCallId(callId) || !validatePhone(to)) {
     return res.status(400).json({ error: 'callId and valid E.164 phone are required' });
   }
   try {
-    const response = new twilio.twiml.VoiceResponse();
+    const response = new signalwire.twiml.VoiceResponse();
     response.dial(to);
-    await twilioClient.calls(callId).update({ twiml: response.toString() });
+    await signalwireClient.calls(callId).update({ twiml: response.toString() });
     res.json({ status: 'connected' });
   } catch (error) {
-    console.error('Twilio answer error:', error);
+    console.error('SignalWire answer error:', error);
     res.status(500).json({ error: 'Failed to connect call' });
   }
 });
 
-app.post('/api/twilio/voicemail', requireApiKey, async (req, res) => {
-  if (!twilioClient) {
-    return res.status(500).json({ error: 'Twilio client not configured' });
+app.post('/api/signalwire/voicemail', requireApiKey, async (req, res) => {
+  if (!signalwireClient) {
+    return res.status(500).json({ error: 'SignalWire client not configured' });
   }
   const { callId } = req.body || {};
   if (!validateCallId(callId)) {
     return res.status(400).json({ error: 'callId is required' });
   }
   try {
-    const response = new twilio.twiml.VoiceResponse();
+    const response = new signalwire.twiml.VoiceResponse();
     response.say('Please leave a message after the tone.');
     response.record({ maxLength: 30 });
-    await twilioClient.calls(callId).update({ twiml: response.toString() });
+    await signalwireClient.calls(callId).update({ twiml: response.toString() });
     res.json({ status: 'voicemail' });
   } catch (error) {
-    console.error('Twilio voicemail error:', error);
+    console.error('SignalWire voicemail error:', error);
     res.status(500).json({ error: 'Failed to send to voicemail' });
   }
 });
 
-app.post('/api/twilio/forward', requireApiKey, async (req, res) => {
-  if (!twilioClient) {
-    return res.status(500).json({ error: 'Twilio client not configured' });
+app.post('/api/signalwire/forward', requireApiKey, async (req, res) => {
+  if (!signalwireClient) {
+    return res.status(500).json({ error: 'SignalWire client not configured' });
   }
   const { callId, to } = req.body || {};
   if (!validateCallId(callId) || !validatePhone(to)) {
     return res.status(400).json({ error: 'callId and valid E.164 phone are required' });
   }
   try {
-    const response = new twilio.twiml.VoiceResponse();
+    const response = new signalwire.twiml.VoiceResponse();
     response.dial(to);
-    await twilioClient.calls(callId).update({ twiml: response.toString() });
+    await signalwireClient.calls(callId).update({ twiml: response.toString() });
     res.json({ status: 'forwarded' });
   } catch (error) {
-    console.error('Twilio forward error:', error);
+    console.error('SignalWire forward error:', error);
     res.status(500).json({ error: 'Failed to forward call' });
   }
 });

@@ -314,7 +314,7 @@ To reduce APK size:
 2. Store keystore passwords securely
 3. Use different keystores for debug and release
 4. Keep a backup of your release keystore
-5. Backend, AnythingLLM, Ollama, and Twilio credentials should be stored securely (consider using environment-specific configs)
+5. Backend, AnythingLLM, Ollama, and SignalWire credentials should be stored securely (consider using environment-specific configs)
 
 ## Additional Resources
 
