@@ -364,6 +364,17 @@ This typically occurs when `node_modules` is in an inconsistent state. To fix:
    # Or manually fix line endings in your editor
    ```
 
+#### `MERGE_HEAD exists` or unfinished merge errors
+
+If you see:
+```
+error: You have not concluded your merge (MERGE_HEAD exists).
+fatal: Exiting because of unfinished merge.
+```
+You have a merge in progress. Resolve it by either:
+- **Finish the merge**: resolve conflicts, then run `git add <files>` and `git commit`.
+- **Abort the merge** (discard the in-progress merge): `git merge --abort`.
+
 ### Build Issues
 
 See the [Android Build Guide](docs/ANDROID_BUILD.md) for Android-specific troubleshooting.
