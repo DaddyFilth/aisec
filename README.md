@@ -100,6 +100,11 @@ AI Secretary can be built and deployed as an Android APK for mobile devices!
 
 ### Quick Start
 
+**Important:** All commands must be run from the project directory. If you get an error like "Could not read package.json", make sure you are in the `aisec` directory:
+```bash
+cd aisec
+```
+
 1. **Build debug APK for testing:**
    ```bash
    npm run android:build:debug

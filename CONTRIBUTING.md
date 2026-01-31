@@ -42,9 +42,12 @@ We welcome feature suggestions! Please create a feature request issue with:
 ## Development Setup
 
 1. Clone the repository
-2. Install dependencies: `npm install`
-3. Copy `.env.local.example` to `.env.local` and add your Gemini API key
-4. Start development server: `npm run dev`
+2. Navigate to the project directory: `cd aisec`
+3. Install dependencies: `npm install`
+4. Copy `.env.local.example` to `.env.local` and add your Gemini API key
+5. Start development server: `npm run dev`
+
+**Note:** All npm commands must be run from the project root directory (where `package.json` is located).
 
 ## Code Style
 
