@@ -28,23 +28,21 @@ if (aapt2Override) {
     if (aapt2File.exists()) {
         logger.lifecycle("Using custom AAPT2 from gradle.properties: ${aapt2Override}")
         logger.lifecycle("AAPT2 binary found and will be used for this build")
-    } else {
+    } else if (isTermux) {
+        // Only show error in Termux environment where AAPT2 is actually needed
         logger.error("AAPT2 override configured in gradle.properties but binary not found!")
         logger.error("Expected location: ${aapt2Override}")
         logger.error("Please install AAPT2 using: pkg install aapt2")
-        logger.error("Or comment out the android.aapt2FromMavenOverride line in gradle.properties")
+    } else {
+        // On desktop, silently fall back to bundled AAPT2
+        logger.info("AAPT2 override configured but not found at ${aapt2Override}, using bundled AAPT2")
     }
 } else if (isTermux) {
     def aapt2File = new File(termuxAapt2)
-    if (aapt2File.exists()) {
-        logger.lifecycle("Termux environment detected. Using ARM64-compatible AAPT2 from: ${termuxAapt2}")
-        // Set the property to override AAPT2
-        project.ext.set('android.aapt2FromMavenOverride', termuxAapt2)
-        System.setProperty('android.aapt2FromMavenOverride', termuxAapt2)
-    } else {
+    if (!aapt2File.exists()) {
         logger.warn("Termux environment detected but AAPT2 not found at ${termuxAapt2}")
         logger.warn("Please install AAPT2 using: pkg install aapt2")
-        logger.warn("The android.aapt2FromMavenOverride line in android/gradle.properties should already be uncommented by default")
+        logger.warn("Note: The AAPT2 override is enabled by default in gradle.properties")
     }
 }
 
