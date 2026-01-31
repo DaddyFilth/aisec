@@ -74,6 +74,13 @@ View your app in AI Studio: https://ai.studio/apps/drive/129UWr-WSACDH_B1WBLuIyo
    ```bash
    npm install
    ```
+   
+   > **Troubleshooting:** If you encounter a `patch-package` error during installation:
+   > ```bash
+   > # Clean install
+   > rm -rf node_modules package-lock.json
+   > npm install
+   > ```
 
 3. **Configure environment**
    ```bash
@@ -271,6 +278,45 @@ aisec/
 - **Audio**: Web Audio API
 - **Styling**: Tailwind CSS (inline)
 - **Icons**: Font Awesome
+
+## 🔧 Troubleshooting
+
+### Installation Issues
+
+#### `patch-package` errors during `npm install`
+
+If you encounter errors like:
+```
+**ERROR** Failed to apply patch for package @capacitor/cli
+```
+
+This typically occurs when `node_modules` is in an inconsistent state. To fix:
+
+1. **Clean installation** (recommended):
+   ```bash
+   rm -rf node_modules package-lock.json
+   npm install
+   ```
+
+2. **If the issue persists**, ensure your Git client is configured to use LF line endings:
+   ```bash
+   git config core.autocrlf input
+   git rm -rf .
+   git reset --hard HEAD
+   npm install
+   ```
+
+3. **Verify patch files** have LF line endings (for contributors):
+   ```bash
+   # On Unix/Linux/Mac
+   dos2unix patches/*.patch
+   
+   # Or manually fix line endings in your editor
+   ```
+
+### Build Issues
+
+See the [Android Build Guide](docs/ANDROID_BUILD.md) for Android-specific troubleshooting.
 
 ## 🤝 Contributing
 
