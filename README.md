@@ -91,7 +91,7 @@ Edit `.env.local` and add your service endpoints:
 ```env
 BACKEND_API_URL=http://localhost:8080
 BACKEND_WS_URL=ws://localhost:8080
-AISEC_API_URL=http://localhost:8080/api/ai/process
+AISEC_API_URL=http://localhost:3000/api/ai/process
 AISEC_API_KEY=your_aisec_api_key
 AISEC_TIMEOUT_MS=5000
 OLLAMA_API_URL=http://localhost:11434
