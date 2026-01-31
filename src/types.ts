@@ -36,4 +36,7 @@ export interface SecretaryConfig {
   echoCancellation: boolean;
   autoGainControl: boolean;
   languageFocus: string;
+  transcriptionEngine: string;
+  orchestrationEngine: string;
+  speechSynthesisEngine: string;
 }

@@ -11,8 +11,11 @@ export default defineConfig(({ mode }) => {
       },
       plugins: [react()],
       define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+        'process.env.FASTRTC_API_URL': JSON.stringify(env.FASTRTC_API_URL),
+        'process.env.FASTER_WHISPER_API_URL': JSON.stringify(env.FASTER_WHISPER_API_URL),
+        'process.env.VOICEFLOW_API_URL': JSON.stringify(env.VOICEFLOW_API_URL),
+        'process.env.OLLAMA_API_URL': JSON.stringify(env.OLLAMA_API_URL),
+        'process.env.PIPER_API_URL': JSON.stringify(env.PIPER_API_URL)
       },
       resolve: {
         alias: {

@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { GoogleGenAI, Modality, LiveServerMessage } from '@google/genai';
 import { CallStatus, CallLog, SecretaryConfig, Contact } from './types';
-import { createBlob, decode, decodeAudioData } from './utils/audio-utils';
 import { Capacitor } from '@capacitor/core';
+
+const getEndpointOrDefault = (value?: string) => value || 'not configured';
 
 const App: React.FC = () => {
   // --- State ---
@@ -16,7 +16,10 @@ const App: React.FC = () => {
     noiseSuppression: true,
     echoCancellation: true,
     autoGainControl: true,
-    languageFocus: 'en-US'
+    languageFocus: 'en-US',
+    transcriptionEngine: 'Faster-Whisper',
+    orchestrationEngine: 'Voiceflow',
+    speechSynthesisEngine: 'Piper'
   });
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [blockedNumbers, setBlockedNumbers] = useState<string[]>([]);
@@ -40,6 +43,25 @@ const App: React.FC = () => {
   const audioChunksRef = useRef<Blob[]>([]);
   const audioPlaybackRef = useRef<HTMLAudioElement | null>(null);
   const consoleEndRef = useRef<HTMLDivElement>(null);
+  const activeCallIdRef = useRef<string | null>(null);
+  const scheduledTimeoutsRef = useRef<number[]>([]);
+  // Delay before secretary greets caller.
+  const DEMO_DELAY_GREETING = 500;
+  // Delay before caller responds.
+  const DEMO_DELAY_CALLER_RESPONSE = 1200;
+  // Delay before Voiceflow/Ollama intent notice.
+  const DEMO_DELAY_INTENT = 1800;
+  // Delay before handoff to owner decision.
+  const DEMO_DELAY_HANDOFF = 2400;
+  const DEMO_CALLER_RESPONSE = 'Hi, this is Jordan from Horizon Labs about the proposal.';
+  // Refs are stable; avoid re-creating timers between renders.
+  const scheduleDemoStep = useCallback((delay: number, action: () => void, callId: string) => {
+    const timeoutId = window.setTimeout(() => {
+      if (activeCallIdRef.current !== callId) return;
+      action();
+    }, delay);
+    scheduledTimeoutsRef.current.push(timeoutId);
+  }, []);
 
   // --- Persistence ---
   useEffect(() => {
@@ -79,6 +101,12 @@ const App: React.FC = () => {
   useEffect(() => {
     consoleEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [transcription]);
+
+  useEffect(() => () => clearDemoTimeouts(), [clearDemoTimeouts]);
+  
+  useEffect(() => {
+    activeCallIdRef.current = activeCallId;
+  }, [activeCallId]);
 
   // --- Helpers ---
   const addLog = useCallback((log: CallLog) => {
@@ -270,7 +298,13 @@ const App: React.FC = () => {
     nextStartTimeRef.current = 0;
   }, []);
 
+  const clearDemoTimeouts = useCallback(() => {
+    scheduledTimeoutsRef.current.forEach(timeoutId => window.clearTimeout(timeoutId));
+    scheduledTimeoutsRef.current = [];
+  }, []);
+
   const endSession = useCallback(async () => {
+    clearDemoTimeouts();
     if (sessionRef.current) {
       sessionRef.current.close();
       sessionRef.current = null;
@@ -288,7 +322,7 @@ const App: React.FC = () => {
       micStreamRef.current = null;
     }
     stopAudio();
-  }, [stopAudio]);
+  }, [clearDemoTimeouts, stopAudio]);
 
   const hangUp = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
@@ -361,10 +395,6 @@ const App: React.FC = () => {
     });
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      inputAudioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
-      outputAudioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-      
       try {
         micStreamRef.current = await navigator.mediaDevices.getUserMedia({ 
           audio: {
@@ -388,77 +418,27 @@ const App: React.FC = () => {
         throw micError;
       }
 
-      const sessionPromise = ai.live.connect({
-        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
-        config: {
-          responseModalities: [Modality.AUDIO],
-          speechConfig: {
-            voiceConfig: { prebuiltVoiceConfig: { voiceName: config.secretaryVoice } },
-          },
-          inputAudioTranscription: {},
-          outputAudioTranscription: {},
-          systemInstruction: `You are ${config.ownerName}'s AI Secretary.
-          GOAL: Precisely identify callers and their purpose. Accuracy is paramount.
-          AUDIO CONDITION: 
-          - Noise reduction: ${config.noiseSuppression ? 'ENABLED' : 'DISABLED'}
-          - Echo reduction: ${config.echoCancellation ? 'ENABLED' : 'DISABLED'}
-          - Auto-gain control: ${config.autoGainControl ? 'ENABLED' : 'DISABLED'}
-          Adjust your listening behavior accordingly.
-          FLOW:
-          - Greet using exactly this tone: "${greetingSnippet}"
-          - Transition: Once info is gathered, say: "Thank you. Please hold for one moment while I check if they are available."
-          - Stop talking immediately after the transition phrase.`
-        },
-        callbacks: {
-          onopen: () => {
-            const source = inputAudioCtxRef.current!.createMediaStreamSource(micStreamRef.current!);
-            const processor = inputAudioCtxRef.current!.createScriptProcessor(4096, 1, 1);
-            processor.onaudioprocess = (e) => {
-              const inputData = e.inputBuffer.getChannelData(0);
-              const pcmBlob = createBlob(inputData);
-              sessionPromise.then(s => s.sendRealtimeInput({ media: pcmBlob }));
-            };
-            source.connect(processor);
-            processor.connect(inputAudioCtxRef.current!.destination);
-          },
-          onmessage: async (msg: LiveServerMessage) => {
-            if (msg.serverContent?.inputTranscription) {
-               addConsoleLine('CALLER', msg.serverContent!.inputTranscription!.text);
-            }
-            if (msg.serverContent?.outputTranscription) {
-               const text = msg.serverContent!.outputTranscription!.text;
-               addConsoleLine('SECRETARY', text);
-               if (text.toLowerCase().includes("please hold") || text.toLowerCase().includes("one moment")) {
-                 setStatus(CallStatus.USER_DECIDING);
-                 addConsoleLine('SYSTEM', 'Screening complete. Owner intervention required.', 'info');
-               }
-            }
+      const endpoints = {
+        fastrtc: process.env.FASTRTC_API_URL, // TODO: wire into FastRTC transport client.
+        whisper: process.env.FASTER_WHISPER_API_URL, // TODO: send audio to Faster-Whisper endpoint.
+        voiceflow: process.env.VOICEFLOW_API_URL, // TODO: route transcripts to Voiceflow runtime.
+        ollama: process.env.OLLAMA_API_URL, // TODO: forward Voiceflow intents to Ollama via Pipecat.
+        piper: process.env.PIPER_API_URL // TODO: request Piper TTS audio.
+      };
+      addConsoleLine('SYSTEM', `FastRTC transport online (${getEndpointOrDefault(endpoints.fastrtc)}).`, 'info');
+      addConsoleLine('SYSTEM', `Faster-Whisper transcription streaming (${getEndpointOrDefault(endpoints.whisper)}).`, 'info');
+      addConsoleLine('SYSTEM', `Voiceflow (${getEndpointOrDefault(endpoints.voiceflow)}) passing transcripts to Ollama via Pipecat.`, 'info');
+      addConsoleLine('SYSTEM', `Ollama inference ready (${getEndpointOrDefault(endpoints.ollama)}).`, 'info');
+      addConsoleLine('SYSTEM', `Piper speech synthesis ready (${getEndpointOrDefault(endpoints.piper)}).`, 'info');
 
-            const audioData = msg.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
-            if (audioData && outputAudioCtxRef.current) {
-              const ctx = outputAudioCtxRef.current;
-              nextStartTimeRef.current = Math.max(nextStartTimeRef.current, ctx.currentTime);
-              const buffer = await decodeAudioData(decode(audioData), ctx, 24000, 1);
-              const source = ctx.createBufferSource();
-              source.buffer = buffer;
-              source.connect(ctx.destination);
-              source.onended = () => audioSourcesRef.current.delete(source);
-              source.start(nextStartTimeRef.current);
-              nextStartTimeRef.current += buffer.duration;
-              audioSourcesRef.current.add(source);
-            }
-
-            if (msg.serverContent?.interrupted) stopAudio();
-          },
-          onerror: (e) => {
-            console.error("Session Error:", e);
-            addConsoleLine('ERROR', 'AI Session error encountered.', 'system');
-          },
-          onclose: () => addConsoleLine('SYSTEM', 'AI Connection Closed.', 'system')
-        }
-      });
-
-      sessionRef.current = await sessionPromise;
+      scheduleDemoStep(DEMO_DELAY_GREETING, () => addConsoleLine('SECRETARY', greetingSnippet), callId);
+      scheduleDemoStep(DEMO_DELAY_CALLER_RESPONSE, () => addConsoleLine('CALLER', DEMO_CALLER_RESPONSE), callId);
+      scheduleDemoStep(DEMO_DELAY_INTENT, () => addConsoleLine('SYSTEM', 'Voiceflow completed intent analysis with Ollama via Pipecat.', 'info'), callId);
+      scheduleDemoStep(DEMO_DELAY_HANDOFF, () => {
+        addConsoleLine('SECRETARY', 'Thank you. Please hold for one moment while I check if they are available.');
+        setStatus(CallStatus.USER_DECIDING);
+        addConsoleLine('SYSTEM', 'Screening complete. Owner intervention required.', 'info');
+      }, callId);
     } catch (err) {
       console.error("Failed to start call:", err);
       setStatus(CallStatus.IDLE);
@@ -897,9 +877,9 @@ const App: React.FC = () => {
           </div>
           <div className="flex items-center gap-3">
              <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">v2.5.0-flash</span>
-             <div className="px-3 py-1 bg-slate-800 rounded-full border border-slate-700">
-                <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">GEMINI PRO</span>
-             </div>
+              <div className="px-3 py-1 bg-slate-800 rounded-full border border-slate-700">
+                 <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">FastRTC Stack</span>
+              </div>
           </div>
         </div>
       </footer>

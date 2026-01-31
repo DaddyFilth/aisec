@@ -83,10 +83,10 @@ See [ANDROID_BUILD.md](ANDROID_BUILD.md) for detailed setup instructions.
 
 ### 🔐 Security Notes
 
-1. **Gemini API Key**: Currently stored in code. For production:
+1. **Service Endpoints**: Configure FastRTC, Faster-Whisper, Voiceflow, Ollama, and Piper endpoints via environment variables.
    - Use environment-specific configurations
-   - Consider backend proxy for API calls
-   - Never commit API keys to public repositories
+   - Consider backend proxies for production routing
+   - Never commit secrets or internal URLs to public repositories
 
 2. **Keystore Management**:
    - Keep release keystore secure and backed up

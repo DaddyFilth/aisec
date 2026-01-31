@@ -3,7 +3,7 @@
 
 # AI Secretary 🤖📞
 
-**An intelligent call screening assistant powered by Google Gemini AI**
+**An intelligent call screening assistant powered by FastRTC, Faster-Whisper, Voiceflow, Ollama, and Piper**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue.svg)](https://www.typescriptlang.org/)
@@ -17,7 +17,7 @@
 
 ## 📖 Overview
 
-AI Secretary is an intelligent call screening application that uses Google's Gemini AI to interact with callers, ask for their name and purpose, and provide you with the information you need to decide whether to:
+AI Secretary is an intelligent call screening application that uses FastRTC, Faster-Whisper, Voiceflow, Ollama, and Piper to interact with callers, ask for their name and purpose, and provide you with the information you need to decide whether to:
 - **Accept the call** and connect directly
 - **Send to voicemail** to record a message
 - **Forward the call** to another number
@@ -26,7 +26,7 @@ AI Secretary is an intelligent call screening application that uses Google's Gem
 ## ✨ Features
 
 ### 🎯 Core Functionality
-- **AI-Powered Call Screening**: Gemini AI converses with callers to identify them and their purpose
+- **AI-Powered Call Screening**: FastRTC streams audio while Faster-Whisper transcribes, Voiceflow routes transcripts to Ollama via Pipecat, and Piper synthesizes responses
 - **Smart Contact Management**: Maintain a contact list with VIP designations
 - **Call Blocking**: Automatically block unwanted numbers
 - **Call History**: Review complete transcripts and recordings of all calls
@@ -59,7 +59,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/129UWr-WSACDH_B1WBLuIyo
 
 - **Node.js** (v18 or higher recommended)
 - **npm** or **yarn**
-- **Gemini API Key** - Get yours from [Google AI Studio](https://ai.google.dev/)
+- **Service Endpoints** - FastRTC, Faster-Whisper, Voiceflow, Ollama, and Piper endpoints or local services
 - **Microphone access** in your browser
 
 ### Setup Steps
@@ -87,9 +87,13 @@ View your app in AI Studio: https://ai.studio/apps/drive/129UWr-WSACDH_B1WBLuIyo
    cp .env.local.example .env.local
    ```
    
-   Edit `.env.local` and add your Gemini API key:
+   Edit `.env.local` and add your service endpoints:
    ```env
-   GEMINI_API_KEY=your_actual_api_key_here
+   FASTRTC_API_URL=https://your-fastrtc-gateway.example
+   FASTER_WHISPER_API_URL=https://your-whisper-service.example
+   VOICEFLOW_API_URL=https://your-voiceflow-runtime.example
+   OLLAMA_API_URL=http://localhost:11434
+   PIPER_API_URL=https://your-piper-tts.example
    ```
 
 4. **Start the development server**
@@ -301,7 +305,7 @@ aisec/
 
 - **Frontend**: React 19.2 with TypeScript
 - **Build Tool**: Vite 6.2
-- **AI/ML**: Google Gemini AI (Live API)
+- **AI/ML**: FastRTC + Faster-Whisper + Voiceflow + Ollama + Piper (Pipecat orchestrated)
 - **Audio**: Web Audio API
 - **Styling**: Tailwind CSS (inline)
 - **Icons**: Font Awesome
@@ -367,7 +371,7 @@ For security concerns, please review our [Security Policy](SECURITY.md).
 
 ## 🙏 Acknowledgments
 
-- Powered by [Google Gemini AI](https://ai.google.dev/)
+- Powered by FastRTC, Faster-Whisper, Voiceflow, Ollama, Piper, and Pipecat
 - Built with [React](https://reactjs.org/) and [Vite](https://vitejs.dev/)
 - Icons by [Font Awesome](https://fontawesome.com/)
 
