@@ -85,7 +85,6 @@ Updated the troubleshooting section to explain the new approach.
 2. Manually edit `android/gradle.properties`
 3. Uncomment the `android.aapt2FromMavenOverride` line
 4. Build would fail if this wasn't done correctly
-5. Remember to comment it back when building on desktop (otherwise could cause confusion)
 
 ### After This Fix
 1. Install AAPT2: `pkg install aapt2`

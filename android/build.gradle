@@ -44,7 +44,7 @@ if (aapt2Override) {
     } else {
         logger.warn("Termux environment detected but AAPT2 not found at ${termuxAapt2}")
         logger.warn("Please install AAPT2 using: pkg install aapt2")
-        logger.warn("Or uncomment the android.aapt2FromMavenOverride line in android/gradle.properties")
+        logger.warn("The android.aapt2FromMavenOverride line in android/gradle.properties should already be uncommented by default")
     }
 }
 
