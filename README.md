@@ -103,7 +103,7 @@ SWIREIT_PROJECT_ID=your_swireit_project_id
 SWIREIT_API_TOKEN=your_swireit_api_token
 SWIREIT_SPACE_URL=your-space.swireit.com
 SWIREIT_CALLER_ID=+15551231234
-SWIREIT_TWIML_URL=your_swireit_laml_url
+SWIREIT_TWIML_URL=your_swireit_twiml_url
 SWIREIT_VALIDATE_WEBHOOKS=true
 ALLOWED_ORIGINS=*
 ```

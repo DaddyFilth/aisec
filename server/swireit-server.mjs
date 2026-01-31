@@ -151,8 +151,8 @@ app.get('/health', (_req, res) => {
 app.post('/swireit/voice', validateSwireitRequest, async (req, res) => {
   const response = swireit.createVoiceResponse();
   const caller = req.body.From || 'Unknown caller';
-  const callSid = req.body.CallSid || `call-${Date.now()}`;
-  broadcast({ type: 'call.start', callId: callSid, from: caller });
+  const callId = req.body.CallId || req.body.CallID || req.body.CallSid || `call-${Date.now()}`;
+  broadcast({ type: 'call.start', callId, from: caller });
   response.gather({
     input: 'speech',
     action: '/swireit/voice/handle',
@@ -170,7 +170,7 @@ app.post('/swireit/voice/handle', validateSwireitRequest, async (req, res) => {
   const response = swireit.createVoiceResponse();
   const transcript = req.body.SpeechResult || '';
   const caller = req.body.From || 'Unknown caller';
-  const callSid = req.body.CallSid || `call-${Date.now()}`;
+  const callId = req.body.CallId || req.body.CallID || req.body.CallSid || `call-${Date.now()}`;
 
   try {
     if (!ANYTHINGLLM_API_URL || !ANYTHINGLLM_API_KEY || !ANYTHINGLLM_WORKSPACE_SLUG || !OLLAMA_API_URL) {
@@ -186,21 +186,21 @@ app.post('/swireit/voice/handle', validateSwireitRequest, async (req, res) => {
       return res.send(response.toString());
     }
 
-    broadcast({ type: 'transcript', callId: callSid, text: transcript });
+    broadcast({ type: 'transcript', callId, text: transcript });
 
     await sendChatMessage({
       baseUrl: ANYTHINGLLM_API_URL,
       apiKey: ANYTHINGLLM_API_KEY,
       workspaceSlug: ANYTHINGLLM_WORKSPACE_SLUG,
       message: `Caller ${caller}: ${transcript}`,
-      sessionId: callSid
+      sessionId: callId
     });
 
     const history = await fetchChatHistory({
       baseUrl: ANYTHINGLLM_API_URL,
       apiKey: ANYTHINGLLM_API_KEY,
       workspaceSlug: ANYTHINGLLM_WORKSPACE_SLUG,
-      sessionId: callSid
+      sessionId: callId
     });
 
     const prompt = [
@@ -216,8 +216,8 @@ app.post('/swireit/voice/handle', validateSwireitRequest, async (req, res) => {
     });
 
     const assistantReply = reply || 'Thank you. Please hold while I notify the owner.';
-    broadcast({ type: 'assistant', callId: callSid, text: assistantReply });
-    broadcast({ type: 'handoff', callId: callSid });
+    broadcast({ type: 'assistant', callId, text: assistantReply });
+    broadcast({ type: 'handoff', callId });
 
     response.say(assistantReply);
     response.redirect('/swireit/voice/hold');
@@ -381,7 +381,7 @@ app.post('/api/swireit/outbound', requireApiKey, async (req, res) => {
     return res.status(400).json({ error: 'Invalid destination phone number' });
   }
   if (!SWIREIT_TWIML_URL) {
-    return res.status(400).json({ error: 'Swireit LaML URL not configured' });
+    return res.status(400).json({ error: 'Swireit TwiML URL not configured' });
   }
   try {
     const call = await swireitClient.calls.create({
@@ -389,7 +389,7 @@ app.post('/api/swireit/outbound', requireApiKey, async (req, res) => {
       from: SWIREIT_CALLER_ID,
       url: SWIREIT_TWIML_URL
     });
-    res.json({ sid: call.sid });
+    res.json({ callId: call.sid });
   } catch (error) {
     console.error('Swireit outbound error:', error);
     res.status(500).json({ error: 'Failed to start outbound call' });
@@ -407,7 +407,7 @@ app.post('/api/swireit/answer', requireApiKey, async (req, res) => {
   try {
     const response = swireit.createVoiceResponse();
     response.dial(to);
-    await swireitClient.calls(callId).update({ twiml: response.toString() });
+    await swireitClient.calls(callId).update({ response: response.toString() });
     res.json({ status: 'connected' });
   } catch (error) {
     console.error('Swireit answer error:', error);
@@ -427,7 +427,7 @@ app.post('/api/swireit/voicemail', requireApiKey, async (req, res) => {
     const response = swireit.createVoiceResponse();
     response.say('Please leave a message after the tone.');
     response.record({ maxLength: 30 });
-    await swireitClient.calls(callId).update({ twiml: response.toString() });
+    await swireitClient.calls(callId).update({ response: response.toString() });
     res.json({ status: 'voicemail' });
   } catch (error) {
     console.error('Swireit voicemail error:', error);
@@ -446,7 +446,7 @@ app.post('/api/swireit/forward', requireApiKey, async (req, res) => {
   try {
     const response = swireit.createVoiceResponse();
     response.dial(to);
-    await swireitClient.calls(callId).update({ twiml: response.toString() });
+    await swireitClient.calls(callId).update({ response: response.toString() });
     res.json({ status: 'forwarded' });
   } catch (error) {
     console.error('Swireit forward error:', error);

@@ -1,57 +1,124 @@
-import { createRequire } from 'module';
-import { pathToFileURL } from 'url';
+import crypto from 'crypto';
 
-const require = createRequire(import.meta.url);
-let swireitModule;
-
-try {
-  swireitModule = require('../swireit');
-} catch (error) {
-  if (error?.code === 'MODULE_NOT_FOUND') {
-    throw new Error('Swireit submodule not found. Run `git submodule update --init --recursive`.');
-  }
-  if (error?.code !== 'ERR_REQUIRE_ESM') {
-    throw error;
-  }
-  const resolved = require.resolve('../swireit');
-  swireitModule = await import(pathToFileURL(resolved).href);
+function escapeXml(value = '') {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
 }
 
-const swireit = swireitModule.default ?? swireitModule;
-
-const normalizeOptions = (options = {}) => ({
-  swireitSpaceUrl: options.swireitSpaceUrl ?? options.spaceUrl
-});
-
-function createClient(projectId, apiToken, options = {}) {
-  if (typeof swireit === 'function') {
-    return swireit(projectId, apiToken, normalizeOptions(options));
-  }
-  if (typeof swireit.createClient === 'function') {
-    return swireit.createClient(projectId, apiToken, normalizeOptions(options));
-  }
-  throw new Error('Swireit module does not expose createClient.');
+function renderAttributes(attributes = {}) {
+  return Object.entries(attributes)
+    .filter(([, val]) => val !== undefined && val !== null)
+    .map(([key, val]) => ` ${key}="${escapeXml(val)}"`)
+    .join('');
 }
 
-function createVoiceResponse() {
-  if (typeof swireit.createVoiceResponse === 'function') {
-    return swireit.createVoiceResponse();
-  }
-  if (swireit?.twiml?.VoiceResponse) {
-    return new swireit.twiml.VoiceResponse();
-  }
-  throw new Error('Swireit module does not expose VoiceResponse.');
+export function createVoiceResponse() {
+  const actions = [];
+  const response = {
+    say(text) {
+      if (text) actions.push(`<Say>${escapeXml(text)}</Say>`);
+      return response;
+    },
+    gather(options = {}) {
+      const gatherActions = [];
+      const gatherResponse = {
+        say(text) {
+          if (text) gatherActions.push(`<Say>${escapeXml(text)}</Say>`);
+          return gatherResponse;
+        }
+      };
+      actions.push(() => `<Gather${renderAttributes(options)}>${gatherActions.join('')}</Gather>`);
+      return gatherResponse;
+    },
+    record(options = {}) {
+      actions.push(`<Record${renderAttributes(options)} />`);
+      return response;
+    },
+    dial(number) {
+      actions.push(`<Dial>${escapeXml(number)}</Dial>`);
+      return response;
+    },
+    pause(options = {}) {
+      actions.push(`<Pause${renderAttributes(options)} />`);
+      return response;
+    },
+    redirect(url) {
+      if (url) actions.push(`<Redirect>${escapeXml(url)}</Redirect>`);
+      return response;
+    },
+    hangup() {
+      actions.push('<Hangup />');
+      return response;
+    },
+    toString() {
+      const rendered = actions
+        .map(entry => (typeof entry === 'function' ? entry() : entry))
+        .join('');
+      return `<?xml version="1.0" encoding="UTF-8"?><Response>${rendered}</Response>`;
+    }
+  };
+
+  return response;
 }
 
-function validateRequest(apiToken, signature, url, params) {
-  if (typeof swireit?.validateRequest !== 'function') {
-    throw new Error('Swireit module does not expose validateRequest.');
-  }
-  return swireit.validateRequest(apiToken, signature, url, params);
+export function validateRequest(apiToken, signature, url, params) {
+  if (!apiToken || !signature || !url) return false;
+  const data = Object.entries(params || {})
+    .sort(([a], [b]) => a.localeCompare(b))
+    .reduce((message, [key, value]) => `${message}${key}${value}`, url);
+  const digest = crypto
+    .createHmac('sha256', apiToken)
+    .update(data)
+    .digest('base64');
+  return timingSafeEqual(Buffer.from(signature), Buffer.from(digest));
+}
+
+function timingSafeEqual(a, b) {
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
+export function createClient(projectId, apiToken, options = {}) {
+  const baseUrl = options.swireitSpaceUrl?.replace(/\/$/, '');
+  const hasAuth = Boolean(projectId && apiToken);
+
+  const request = async (path, payload) => {
+    if (!baseUrl) {
+      throw new Error('Swireit API URL not configured');
+    }
+    const response = await fetch(`${baseUrl}${path}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(hasAuth ? { Authorization: `Bearer ${apiToken}` } : {})
+      },
+      body: JSON.stringify(payload)
+    });
+    if (!response.ok) {
+      const message = await response.text();
+      throw new Error(`Swireit API error: ${response.status} ${message}`);
+    }
+    return response.json();
+  };
+
+  return {
+    calls: {
+      create({ to, from, url }) {
+        return request('/api/calls', { to, from, url });
+      },
+      update(callId, { response }) {
+        return request(`/api/calls/${encodeURIComponent(callId)}`, { response });
+      }
+    }
+  };
 }
 
 export default {
-  createClient,
   createVoiceResponse,
-  validateRequest
+  validateRequest,
+  createClient
 };
