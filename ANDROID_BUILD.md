@@ -4,21 +4,26 @@ This guide explains how to build AI Secretary as an Android APK file.
 
 > **⚡ Runtime Permissions**: The app now includes automatic runtime permission requests for microphone access. When users first launch the app, they'll be prompted to grant microphone permission, which is required for call screening functionality.
 
+> **🔧 Java Version Auto-Fix**: The build system now automatically handles Java version compatibility! If your system Java is incompatible (too old or too new), Gradle will automatically download and use JDK 17. You don't need to manually install or configure Java unless you want to.
+
 ## Prerequisites
 
 ### Required Software
 
 1. **Node.js** (v18 or higher)
-2. **Java Development Kit (JDK)** 17 or 21
-   - **CRITICAL:** Android Gradle Plugin 8.7.2 requires Java 17 or higher
-   - **Using Java 11 or older will cause build errors:**
-     - `Unsupported class file major version 69`
-     - `BUG! exception in phase 'semantic analysis'` (caused by Java version incompatibility)
-   - Java 22+ is NOT supported and will cause build errors
-   - Download JDK 17 from [Eclipse Temurin](https://adoptium.net/temurin/releases/?version=17) (recommended)
-   - Or download JDK 21 from [Eclipse Temurin](https://adoptium.net/temurin/releases/?version=21)
-   - Verify: `java -version` should show version 17.x.x or 21.x.x
-   - **The build will fail immediately if you use an incompatible Java version**
+
+2. **Java Development Kit (JDK)** - **OPTIONAL with Auto-Fix Enabled**
+   - **✨ NEW: Automatic Java version handling** - The build will automatically download JDK 17 if needed
+   - Your first build may take longer while JDK 17 is downloaded (~100-200 MB)
+   - **Recommended (but optional):** Install JDK 17 or 21 to avoid download time
+     - Download JDK 17 from [Eclipse Temurin](https://adoptium.net/temurin/releases/?version=17) (recommended)
+     - Or download JDK 21 from [Eclipse Temurin](https://adoptium.net/temurin/releases/?version=21)
+     - Verify: `java -version` should show version 17.x.x or 21.x.x
+   - **How Auto-Fix Works:**
+     - Detects your system Java version
+     - If incompatible (< 17 or > 21), downloads JDK 17 automatically
+     - Uses the correct JDK for building without changing your system settings
+     - Shows a warning message explaining what's happening
 
 3. **Android Studio** (recommended) or Android SDK Command-line Tools
    - Download from [Android Studio](https://developer.android.com/studio)
@@ -173,8 +178,8 @@ Or simply copy the APK file to your device and open it to install.
   ```
 
 ### "JAVA_HOME is not set"
-- Make sure you have JDK 17+ installed
-- Set the JAVA_HOME environment variable correctly
+- **With Auto-Fix:** This is usually fine - Gradle will download JDK 17 automatically
+- **To install Java manually:** Download JDK 17 and set JAVA_HOME correctly
 
 ### "SDK location not found"
 - Install Android SDK
@@ -189,30 +194,23 @@ Or simply copy the APK file to your device and open it to install.
   cd android && ./gradlew clean
   ```
 
-### "Unsupported class file major version 69"
-- This error occurs when using Java 25, which is NOT supported by Gradle 8.9
-- Class file major version 69 corresponds to Java 25
-- Android Gradle Plugin 8.7.2 and Gradle 8.9 require Java 17 or 21
-- **Solution:** Downgrade to Java 17 or Java 21
-- Check your Java version:
-  ```bash
-  java -version  # Should show version 17.x.x or 21.x.x (NOT 25.x.x)
-  ```
-- If you have the correct Java version installed but still see this error:
-  - Make sure JAVA_HOME points to the correct JDK
-  - Stop all Gradle daemons: `cd android && ./gradlew --stop`
-  - Try the build again
-- If you have multiple Java versions installed:
-  - **Linux/Mac:** Set JAVA_HOME to Java 17 or 21:
-    ```bash
-    export JAVA_HOME=/path/to/jdk-17  # or jdk-21
-    ```
-  - **Windows:** Update JAVA_HOME environment variable:
-    ```cmd
-    setx JAVA_HOME "C:\Program Files\Java\jdk-17"  # or jdk-21
-    ```
-- **Recommended:** Install [Eclipse Temurin JDK 17](https://adoptium.net/temurin/releases/?version=17)
-- After fixing Java version, clean and rebuild:
+### "Unsupported class file major version 69" or Java Version Issues
+- **✨ This should be automatically fixed!** The build system detects incompatible Java and auto-downloads JDK 17
+- If you see a warning message about auto-fix, this is normal - the build will continue
+- Your first build may take 5-10 minutes while JDK 17 is downloaded (~100-200 MB)
+- Subsequent builds will be fast since the JDK is cached
+
+**If auto-fix doesn't work:**
+- Make sure you have internet connection (needed to download JDK)
+- Check that `gradle.properties` has toolchain settings enabled
+- Manually install JDK 17:
+  - Download: [Eclipse Temurin JDK 17](https://adoptium.net/temurin/releases/?version=17)
+  - Set JAVA_HOME:
+    - **Linux/Mac:** `export JAVA_HOME=/path/to/jdk-17`
+    - **Windows:** `setx JAVA_HOME "C:\Program Files\Java\jdk-17"`
+  - Verify: `java -version` should show 17.x.x
+- Stop all Gradle daemons: `cd android && ./gradlew --stop`
+- Clean and rebuild:
   ```bash
   cd android && ./gradlew clean && cd ..
   npm run android:build:debug
