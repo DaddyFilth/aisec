@@ -105,6 +105,8 @@ View your app in AI Studio: https://ai.studio/apps/drive/129UWr-WSACDH_B1WBLuIyo
 
 AI Secretary can be built and deployed as an Android APK for mobile devices!
 
+**🆕 Android 16 Compatible:** This app now targets Android 16 (API level 36) for the latest features and security improvements.
+
 ### Quick Start
 
 **Important:** All commands must be run from the project directory. If you get an error like "Could not read package.json", make sure you are in the `aisec` directory:
@@ -118,30 +120,55 @@ cd aisec
    ```
    APK location: `android/app/build/outputs/apk/debug/app-debug.apk`
 
-2. **Build release APK for distribution:**
+2. **Build signed release APK for distribution:**
    ```bash
    npm run android:build
    ```
    APK location: `android/app/build/outputs/apk/release/app-release.apk`
+   
+   **Note:** The release build is now automatically signed. See [Android 16 Upgrade Guide](docs/ANDROID_16_UPGRADE.md) for signing configuration.
 
 ### Prerequisites for Android Build
 
-- **Java Development Kit (JDK)** 17 or 21 (NOT Java 25)
+- **Java Development Kit (JDK)** 17 (required for Android 16)
   - **✨ Auto-fix available:** If your system Java is incompatible, Gradle will automatically download JDK 17
-- **Android SDK** (via Android Studio or command-line tools)
+- **Android SDK** with API level 36 (Android 16)
+  - Install via Android Studio or command-line tools
   - **✨ Auto-setup available:** The build system automatically detects and configures your Android SDK
-  - Install Android Studio or set `ANDROID_HOME` environment variable
   - SDK location is auto-detected from common paths or environment variables
-- **Gradle** (included via wrapper)
+- **Gradle 9.1+** (included via wrapper, auto-downloaded on first build)
+- **Android Gradle Plugin 9.0.0** (auto-configured)
+
+### APK Signing Configuration
+
+For production releases, configure your signing credentials:
+
+**Option 1 - Environment Variables (CI/CD):**
+```bash
+export KEYSTORE_FILE=/path/to/keystore.jks
+export KEYSTORE_PASSWORD=your_password
+export KEY_ALIAS=your_alias
+export KEY_PASSWORD=your_key_password
+```
+
+**Option 2 - Properties File (Local Dev):**
+```bash
+cp android/keystore.properties.example android/keystore.properties
+# Edit keystore.properties with your credentials
+```
+
+If no signing config is provided, the build uses the debug keystore (not suitable for production).
 
 For detailed Android build instructions, including:
-- Environment setup
+- Android 16 compatibility changes
+- Keystore generation
 - Signing configuration
 - Testing on devices/emulators
 - Troubleshooting
 - Distribution options
 
-👉 See the complete [Android Build Guide](docs/ANDROID_BUILD.md)
+👉 See the complete [Android 16 Upgrade Guide](docs/ANDROID_16_UPGRADE.md)
+👉 See the [Android Build Guide](docs/ANDROID_BUILD.md)
 
 #### Building on Android (Termux)
 
@@ -156,7 +183,7 @@ npm run android:sync        # Sync web build to Android
 npm run android:open        # Open in Android Studio
 npm run android:run         # Build and run on device
 npm run android:build:debug # Build debug APK
-npm run android:build       # Build release APK
+npm run android:build       # Build signed release APK
 ```
 
 ## 📖 Usage
