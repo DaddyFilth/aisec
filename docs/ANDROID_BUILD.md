@@ -314,7 +314,7 @@ To reduce APK size:
 2. Store keystore passwords securely
 3. Use different keystores for debug and release
 4. Keep a backup of your release keystore
-5. The Gemini API key should be stored securely (consider using environment-specific configs)
+5. Configure Ollama host/model via environment variables and keep any sensitive settings out of version control
 
 ## Additional Resources
 

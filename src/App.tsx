@@ -1,9 +1,13 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { GoogleGenAI, Modality, LiveServerMessage } from '@google/genai';
 import { CallStatus, CallLog, SecretaryConfig, Contact } from './types';
-import { createBlob, decode, decodeAudioData } from './utils/audio-utils';
 import { Capacitor } from '@capacitor/core';
+
+type OllamaMessage = { role: 'system' | 'user' | 'assistant'; content: string };
+type SpeechRecognitionResultLike = { isFinal: boolean; [index: number]: { transcript: string } };
+type SpeechRecognitionEventLike = { resultIndex: number; results: SpeechRecognitionResultLike[] };
+
+const trimTrailingSlash = (value: string) => value.replace(/\/+$/, '');
 
 const App: React.FC = () => {
   // --- State ---
@@ -28,18 +32,18 @@ const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
   const [currentlyPlayingId, setCurrentlyPlayingId] = useState<string | null>(null);
+  const statusRef = useRef(status);
+  const recognitionActiveRef = useRef(false);
 
   // --- Refs for Audio & Session ---
-  const sessionRef = useRef<any>(null);
-  const inputAudioCtxRef = useRef<AudioContext | null>(null);
-  const outputAudioCtxRef = useRef<AudioContext | null>(null);
-  const nextStartTimeRef = useRef<number>(0);
-  const audioSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
+  const recognitionRef = useRef<any>(null);
+  const ollamaMessagesRef = useRef<OllamaMessage[]>([]);
   const micStreamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioPlaybackRef = useRef<HTMLAudioElement | null>(null);
   const consoleEndRef = useRef<HTMLDivElement>(null);
+  const recognitionSessionRef = useRef(0);
 
   // --- Persistence ---
   useEffect(() => {
@@ -79,6 +83,18 @@ const App: React.FC = () => {
   useEffect(() => {
     consoleEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [transcription]);
+
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
+
+  const shouldContinueRecognition = useCallback(
+    (sessionId: number) =>
+      recognitionActiveRef.current &&
+      statusRef.current === CallStatus.SCREENING &&
+      recognitionSessionRef.current === sessionId,
+    []
+  );
 
   // --- Helpers ---
   const addLog = useCallback((log: CallLog) => {
@@ -261,34 +277,113 @@ const App: React.FC = () => {
     }
   }, [status]);
 
-  // --- Live API Management ---
-  const stopAudio = useCallback(() => {
-    audioSourcesRef.current.forEach(source => {
-      try { source.stop(); } catch(e) {}
-    });
-    audioSourcesRef.current.clear();
-    nextStartTimeRef.current = 0;
-  }, []);
+  const sendOllamaMessage = useCallback(async (prompt: string) => {
+    const host = trimTrailingSlash(import.meta.env.OLLAMA_HOST || 'http://localhost:11434');
+    const model = import.meta.env.OLLAMA_MODEL || 'llama3.1';
+    const messages = [...ollamaMessagesRef.current, { role: 'user', content: prompt } as OllamaMessage];
+    ollamaMessagesRef.current = messages;
+    try {
+      const response = await fetch(`${host}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, messages, stream: false })
+      });
+      if (!response.ok) {
+        const statusText = response.statusText ? ` ${response.statusText}` : '';
+        throw new Error(`Ollama error: ${response.status}${statusText}`);
+      }
+      const data = await response.json();
+      const text = data?.message?.content?.trim() || '';
+      if (text) {
+        ollamaMessagesRef.current = [...ollamaMessagesRef.current, { role: 'assistant', content: text }];
+        addConsoleLine('SECRETARY', text);
+        if (text.toLowerCase().includes('please hold') || text.toLowerCase().includes('one moment')) {
+          setStatus(CallStatus.USER_DECIDING);
+          addConsoleLine('SYSTEM', 'Screening complete. Owner intervention required.', 'info');
+        }
+      }
+    } catch (err) {
+      console.error('Ollama request failed:', err);
+      addConsoleLine('ERROR', 'Ollama request failed.', 'system');
+    }
+  }, [addConsoleLine]);
 
+  const startRecognition = useCallback(() => {
+    const Recognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!Recognition) {
+      addConsoleLine('ERROR', 'Speech recognition is not supported in this browser.', 'system');
+      return;
+    }
+    const recognition = new Recognition();
+    recognitionRef.current = recognition;
+    const sessionTimestamp = Date.now();
+    recognitionSessionRef.current = sessionTimestamp;
+    recognitionActiveRef.current = true;
+    recognition.lang = config.languageFocus;
+    recognition.interimResults = true;
+    recognition.continuous = true;
+
+    recognition.onresult = (event: SpeechRecognitionEventLike) => {
+      let finalText = '';
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        const result = event.results[i];
+        if (result.isFinal) {
+          finalText += result[0].transcript;
+        }
+      }
+      const cleaned = finalText.trim();
+      if (cleaned) {
+        addConsoleLine('CALLER', cleaned);
+        sendOllamaMessage(cleaned);
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      if (event?.error) {
+        console.error('Speech recognition error:', event.error);
+      }
+      const errorDetail = event?.error ? ` (${event.error})` : '';
+      addConsoleLine('ERROR', `Speech recognition error encountered${errorDetail}.`, 'system');
+    };
+
+    recognition.onend = () => {
+      if (shouldContinueRecognition(sessionTimestamp)) {
+        try {
+          recognition.start();
+        } catch (err) {
+          console.error('Speech recognition restart failed:', err);
+        }
+      }
+    };
+
+    try {
+      recognition.start();
+    } catch (err) {
+      console.error('Speech recognition start failed:', err);
+      recognitionActiveRef.current = false;
+      addConsoleLine('ERROR', 'Speech recognition failed to start.', 'system');
+    }
+  }, [addConsoleLine, config.languageFocus, sendOllamaMessage, shouldContinueRecognition]);
+
+  // --- Live API Management ---
   const endSession = useCallback(async () => {
-    if (sessionRef.current) {
-      sessionRef.current.close();
-      sessionRef.current = null;
-    }
-    if (inputAudioCtxRef.current) {
-      await inputAudioCtxRef.current.close();
-      inputAudioCtxRef.current = null;
-    }
-    if (outputAudioCtxRef.current) {
-      await outputAudioCtxRef.current.close();
-      outputAudioCtxRef.current = null;
+    recognitionActiveRef.current = false;
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onend = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.stop();
+      } catch (err) {
+        console.warn('Speech recognition cleanup failed:', err);
+      }
+      recognitionRef.current = null;
     }
     if (micStreamRef.current) {
       micStreamRef.current.getTracks().forEach(t => t.stop());
       micStreamRef.current = null;
     }
-    stopAudio();
-  }, [stopAudio]);
+  }, []);
 
   const hangUp = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
@@ -361,10 +456,14 @@ const App: React.FC = () => {
     });
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      inputAudioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
-      outputAudioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-      
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (err) {
+          console.warn('Speech recognition cleanup failed:', err);
+        }
+        recognitionRef.current = null;
+      }
       try {
         micStreamRef.current = await navigator.mediaDevices.getUserMedia({ 
           audio: {
@@ -388,77 +487,25 @@ const App: React.FC = () => {
         throw micError;
       }
 
-      const sessionPromise = ai.live.connect({
-        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
-        config: {
-          responseModalities: [Modality.AUDIO],
-          speechConfig: {
-            voiceConfig: { prebuiltVoiceConfig: { voiceName: config.secretaryVoice } },
-          },
-          inputAudioTranscription: {},
-          outputAudioTranscription: {},
-          systemInstruction: `You are ${config.ownerName}'s AI Secretary.
-          GOAL: Precisely identify callers and their purpose. Accuracy is paramount.
-          AUDIO CONDITION: 
-          - Noise reduction: ${config.noiseSuppression ? 'ENABLED' : 'DISABLED'}
-          - Echo reduction: ${config.echoCancellation ? 'ENABLED' : 'DISABLED'}
-          - Auto-gain control: ${config.autoGainControl ? 'ENABLED' : 'DISABLED'}
-          Adjust your listening behavior accordingly.
-          FLOW:
-          - Greet using exactly this tone: "${greetingSnippet}"
-          - Transition: Once info is gathered, say: "Thank you. Please hold for one moment while I check if they are available."
-          - Stop talking immediately after the transition phrase.`
+      ollamaMessagesRef.current = [
+        {
+          role: 'system',
+          content: `You are ${config.ownerName}'s AI Secretary.
+GOAL: Precisely identify callers and their purpose. Accuracy is paramount.
+AUDIO CONDITION:
+- Noise reduction: ${config.noiseSuppression ? 'ENABLED' : 'DISABLED'}
+- Echo reduction: ${config.echoCancellation ? 'ENABLED' : 'DISABLED'}
+- Auto-gain control: ${config.autoGainControl ? 'ENABLED' : 'DISABLED'}
+Adjust your listening behavior accordingly.
+FLOW:
+- Greet using exactly this tone: "${greetingSnippet}"
+- Transition: Once info is gathered, say: "Thank you. Please hold for one moment while I check if they are available."
+- Stop talking immediately after the transition phrase.`
         },
-        callbacks: {
-          onopen: () => {
-            const source = inputAudioCtxRef.current!.createMediaStreamSource(micStreamRef.current!);
-            const processor = inputAudioCtxRef.current!.createScriptProcessor(4096, 1, 1);
-            processor.onaudioprocess = (e) => {
-              const inputData = e.inputBuffer.getChannelData(0);
-              const pcmBlob = createBlob(inputData);
-              sessionPromise.then(s => s.sendRealtimeInput({ media: pcmBlob }));
-            };
-            source.connect(processor);
-            processor.connect(inputAudioCtxRef.current!.destination);
-          },
-          onmessage: async (msg: LiveServerMessage) => {
-            if (msg.serverContent?.inputTranscription) {
-               addConsoleLine('CALLER', msg.serverContent!.inputTranscription!.text);
-            }
-            if (msg.serverContent?.outputTranscription) {
-               const text = msg.serverContent!.outputTranscription!.text;
-               addConsoleLine('SECRETARY', text);
-               if (text.toLowerCase().includes("please hold") || text.toLowerCase().includes("one moment")) {
-                 setStatus(CallStatus.USER_DECIDING);
-                 addConsoleLine('SYSTEM', 'Screening complete. Owner intervention required.', 'info');
-               }
-            }
-
-            const audioData = msg.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
-            if (audioData && outputAudioCtxRef.current) {
-              const ctx = outputAudioCtxRef.current;
-              nextStartTimeRef.current = Math.max(nextStartTimeRef.current, ctx.currentTime);
-              const buffer = await decodeAudioData(decode(audioData), ctx, 24000, 1);
-              const source = ctx.createBufferSource();
-              source.buffer = buffer;
-              source.connect(ctx.destination);
-              source.onended = () => audioSourcesRef.current.delete(source);
-              source.start(nextStartTimeRef.current);
-              nextStartTimeRef.current += buffer.duration;
-              audioSourcesRef.current.add(source);
-            }
-
-            if (msg.serverContent?.interrupted) stopAudio();
-          },
-          onerror: (e) => {
-            console.error("Session Error:", e);
-            addConsoleLine('ERROR', 'AI Session error encountered.', 'system');
-          },
-          onclose: () => addConsoleLine('SYSTEM', 'AI Connection Closed.', 'system')
-        }
-      });
-
-      sessionRef.current = await sessionPromise;
+        { role: 'assistant', content: greetingSnippet }
+      ];
+      addConsoleLine('SECRETARY', greetingSnippet);
+      startRecognition();
     } catch (err) {
       console.error("Failed to start call:", err);
       setStatus(CallStatus.IDLE);
@@ -468,9 +515,8 @@ const App: React.FC = () => {
   const handleAnswer = useCallback(async () => {
     setStatus(CallStatus.CONNECTED);
     updateActiveLog({ status: CallStatus.CONNECTED });
-    stopAudio();
     addConsoleLine('SYSTEM', 'User accepted call. Patching audio through...', 'info');
-  }, [stopAudio, updateActiveLog, addConsoleLine]);
+  }, [updateActiveLog, addConsoleLine]);
 
   const handleVoicemail = useCallback(async () => {
     setStatus(CallStatus.VOICEMAIL);
@@ -896,9 +942,9 @@ const App: React.FC = () => {
             <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-indigo-500 shadow-indigo-500/50"></div><span>Encryption Active</span></div>
           </div>
           <div className="flex items-center gap-3">
-             <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">v2.5.0-flash</span>
+             <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">v2.5.0-ollama</span>
              <div className="px-3 py-1 bg-slate-800 rounded-full border border-slate-700">
-                <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">GEMINI PRO</span>
+                <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">OLLAMA</span>
              </div>
           </div>
         </div>

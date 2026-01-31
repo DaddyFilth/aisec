@@ -3,7 +3,7 @@
 
 # AI Secretary 🤖📞
 
-**An intelligent call screening assistant powered by Google Gemini AI**
+**An intelligent call screening assistant powered by Ollama**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue.svg)](https://www.typescriptlang.org/)
@@ -17,7 +17,7 @@
 
 ## 📖 Overview
 
-AI Secretary is an intelligent call screening application that uses Google's Gemini AI to interact with callers, ask for their name and purpose, and provide you with the information you need to decide whether to:
+AI Secretary is an intelligent call screening application that uses Ollama to interact with callers, ask for their name and purpose, and provide you with the information you need to decide whether to:
 - **Accept the call** and connect directly
 - **Send to voicemail** to record a message
 - **Forward the call** to another number
@@ -26,7 +26,7 @@ AI Secretary is an intelligent call screening application that uses Google's Gem
 ## ✨ Features
 
 ### 🎯 Core Functionality
-- **AI-Powered Call Screening**: Gemini AI converses with callers to identify them and their purpose
+- **AI-Powered Call Screening**: Ollama converses with callers to identify them and their purpose
 - **Smart Contact Management**: Maintain a contact list with VIP designations
 - **Call Blocking**: Automatically block unwanted numbers
 - **Call History**: Review complete transcripts and recordings of all calls
@@ -51,15 +51,13 @@ AI Secretary is an intelligent call screening application that uses Google's Gem
 
 ## 🎬 Demo
 
-View your app in AI Studio: https://ai.studio/apps/drive/129UWr-WSACDH_B1WBLuIyoni4AVryZ4e
-
 ## 🚀 Installation
 
 ### Prerequisites
 
 - **Node.js** (v18 or higher recommended)
 - **npm** or **yarn**
-- **Gemini API Key** - Get yours from [Google AI Studio](https://ai.google.dev/)
+- **Ollama** running locally (default http://localhost:11434)
 - **Microphone access** in your browser
 
 ### Setup Steps
@@ -87,9 +85,10 @@ View your app in AI Studio: https://ai.studio/apps/drive/129UWr-WSACDH_B1WBLuIyo
    cp .env.local.example .env.local
    ```
    
-   Edit `.env.local` and add your Gemini API key:
+   Edit `.env.local` to point at your Ollama instance:
    ```env
-   GEMINI_API_KEY=your_actual_api_key_here
+   OLLAMA_HOST=http://localhost:11434
+   OLLAMA_MODEL=llama3.1
    ```
 
 4. **Start the development server**
@@ -98,8 +97,13 @@ View your app in AI Studio: https://ai.studio/apps/drive/129UWr-WSACDH_B1WBLuIyo
    ```
 
 5. **Open in browser**
-   
+    
    Navigate to `http://localhost:5173` (or the port shown in your terminal)
+
+6. **Run Ollama with the model**
+   ```bash
+   ollama run llama3.1
+   ```
 
 ## 📱 Android APK Deployment
 
@@ -281,7 +285,6 @@ aisec/
 ├── index.tsx            # React entry point
 ├── types.ts             # TypeScript type definitions
 ├── utils/
-│   └── audio-utils.ts   # Audio processing utilities
 ├── vite.config.ts       # Vite configuration
 ├── tsconfig.json        # TypeScript configuration
 ├── package.json         # Dependencies and scripts
@@ -301,7 +304,7 @@ aisec/
 
 - **Frontend**: React 19.2 with TypeScript
 - **Build Tool**: Vite 6.2
-- **AI/ML**: Google Gemini AI (Live API)
+- **AI/ML**: Ollama (local HTTP API)
 - **Audio**: Web Audio API
 - **Styling**: Tailwind CSS (inline)
 - **Icons**: Font Awesome
@@ -367,7 +370,7 @@ For security concerns, please review our [Security Policy](SECURITY.md).
 
 ## 🙏 Acknowledgments
 
-- Powered by [Google Gemini AI](https://ai.google.dev/)
+- Powered by [Ollama](https://ollama.com/)
 - Built with [React](https://reactjs.org/) and [Vite](https://vitejs.dev/)
 - Icons by [Font Awesome](https://fontawesome.com/)
 

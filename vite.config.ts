@@ -11,8 +11,8 @@ export default defineConfig(({ mode }) => {
       },
       plugins: [react()],
       define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+        'import.meta.env.OLLAMA_HOST': JSON.stringify(env.OLLAMA_HOST ?? 'http://localhost:11434'),
+        'import.meta.env.OLLAMA_MODEL': JSON.stringify(env.OLLAMA_MODEL ?? 'llama3.1')
       },
       resolve: {
         alias: {

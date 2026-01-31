@@ -83,10 +83,7 @@ See [ANDROID_BUILD.md](ANDROID_BUILD.md) for detailed setup instructions.
 
 ### 🔐 Security Notes
 
-1. **Gemini API Key**: Currently stored in code. For production:
-   - Use environment-specific configurations
-   - Consider backend proxy for API calls
-   - Never commit API keys to public repositories
+1. **Ollama Configuration**: Ensure your local Ollama host/model values are provided via environment variables.
 
 2. **Keystore Management**:
    - Keep release keystore secure and backed up
