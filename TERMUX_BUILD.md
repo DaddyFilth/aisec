@@ -28,12 +28,7 @@ The build configuration in `android/build.gradle` checks for the `PREFIX` enviro
    pkg install aapt2
    ```
 
-2. Enable the AAPT2 override in `android/gradle.properties` by uncommenting this line:
-   ```properties
-   android.aapt2FromMavenOverride=/data/data/com.termux/files/usr/bin/aapt2
-   ```
-
-The build system will then automatically use the ARM64-compatible AAPT2 for all builds.
+The AAPT2 override is **already enabled by default** in `android/gradle.properties`. The build system will automatically use the ARM64-compatible AAPT2 once you install it.
 
 ## Building the App
 
@@ -93,9 +88,12 @@ This error occurs when AAPT2 is not installed or not compatible.
    # Should show: ELF 64-bit LSB executable, ARM aarch64
    ```
 
-3. **Uncomment the AAPT2 override** in `android/gradle.properties` to enable it for Termux builds. See the "Manual AAPT2 Override" section below for details.
+3. **That's it!** The AAPT2 override is already enabled by default in `android/gradle.properties`. Once you install AAPT2, the build system will automatically use it.
 
-**Note:** The AAPT2 override in gradle.properties is commented out by default to prevent issues on desktop/CI environments. When building in Termux, you need to uncomment the override line after installing AAPT2. This ensures builds work correctly in both Termux and desktop environments.
+**Note:** The AAPT2 override in gradle.properties is now enabled by default, which means:
+- Termux builds will automatically use the ARM64-compatible AAPT2 once installed
+- Desktop/CI builds will gracefully fall back to the bundled AAPT2 (since the Termux path doesn't exist)
+- No manual configuration needed - it works seamlessly in both environments
 
 ### Build is very slow
 
@@ -124,19 +122,21 @@ If you get out of memory errors during build:
 
 ### Manual AAPT2 Override
 
-The AAPT2 override is **commented out by default** in `android/gradle.properties` to prevent issues on desktop/CI builds.
+The AAPT2 override is **now enabled by default** in `android/gradle.properties`.
 
-To enable it for Termux builds:
+**No manual configuration is needed!** The override is already set to:
+```properties
+android.aapt2FromMavenOverride=/data/data/com.termux/files/usr/bin/aapt2
+```
 
-1. Edit `android/gradle.properties`
-2. Uncomment the line:
-   ```properties
-   android.aapt2FromMavenOverride=/data/data/com.termux/files/usr/bin/aapt2
-   ```
+This configuration:
+- Uses ARM64-compatible AAPT2 when available in Termux (after `pkg install aapt2`)
+- Gracefully falls back to bundled AAPT2 on desktop/CI environments where the path doesn't exist
+- Works seamlessly in both Termux and non-Termux environments
 
-If you need to use a different AAPT2 location, modify the path accordingly.
+If you need to use a different AAPT2 location, modify the path in `android/gradle.properties` accordingly.
 
-To disable the override (default for desktop/CI builds), ensure the line is commented:
+To disable the override (revert to bundled AAPT2 only), comment out the line:
 ```properties
 #android.aapt2FromMavenOverride=/data/data/com.termux/files/usr/bin/aapt2
 ```
