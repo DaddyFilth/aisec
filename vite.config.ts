@@ -11,11 +11,8 @@ export default defineConfig(({ mode }) => {
       },
       plugins: [react()],
       define: {
-        'process.env.FASTRTC_API_URL': JSON.stringify(env.FASTRTC_API_URL),
-        'process.env.FASTER_WHISPER_API_URL': JSON.stringify(env.FASTER_WHISPER_API_URL),
-        'process.env.VOICEFLOW_API_URL': JSON.stringify(env.VOICEFLOW_API_URL),
-        'process.env.OLLAMA_API_URL': JSON.stringify(env.OLLAMA_API_URL),
-        'process.env.PIPER_API_URL': JSON.stringify(env.PIPER_API_URL)
+        'process.env.BACKEND_API_URL': JSON.stringify(env.BACKEND_API_URL),
+        'process.env.BACKEND_WS_URL': JSON.stringify(env.BACKEND_WS_URL)
       },
       resolve: {
         alias: {

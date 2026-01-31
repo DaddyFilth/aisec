@@ -39,4 +39,5 @@ export interface SecretaryConfig {
   transcriptionEngine: string;
   orchestrationEngine: string;
   speechSynthesisEngine: string;
+  wakeName: string;
 }

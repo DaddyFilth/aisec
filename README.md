@@ -3,7 +3,7 @@
 
 # AI Secretary 🤖📞
 
-**An intelligent call screening assistant powered by FastRTC, Faster-Whisper, Voiceflow, Ollama, and Piper**
+**An intelligent call screening assistant powered by Twilio, AnythingLLM, and Ollama**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue.svg)](https://www.typescriptlang.org/)
@@ -17,7 +17,7 @@
 
 ## 📖 Overview
 
-AI Secretary is an intelligent call screening application that uses FastRTC, Faster-Whisper, Voiceflow, Ollama, and Piper to interact with callers, ask for their name and purpose, and provide you with the information you need to decide whether to:
+AI Secretary is an intelligent call screening application that uses Twilio Programmable Voice, AnythingLLM, and Ollama to interact with callers, ask for their name and purpose, and provide you with the information you need to decide whether to:
 - **Accept the call** and connect directly
 - **Send to voicemail** to record a message
 - **Forward the call** to another number
@@ -26,7 +26,7 @@ AI Secretary is an intelligent call screening application that uses FastRTC, Fas
 ## ✨ Features
 
 ### 🎯 Core Functionality
-- **AI-Powered Call Screening**: FastRTC streams audio while Faster-Whisper transcribes, Voiceflow routes transcripts to Ollama via Pipecat, and Piper synthesizes responses
+- **AI-Powered Call Screening**: Twilio handles phone audio, AnythingLLM retrieves document-backed context, and Ollama generates responses
 - **Smart Contact Management**: Maintain a contact list with VIP designations
 - **Call Blocking**: Automatically block unwanted numbers
 - **Call History**: Review complete transcripts and recordings of all calls
@@ -59,7 +59,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/129UWr-WSACDH_B1WBLuIyo
 
 - **Node.js** (v18 or higher recommended)
 - **npm** or **yarn**
-- **Service Endpoints** - FastRTC, Faster-Whisper, Voiceflow, Ollama, and Piper endpoints or local services
+- **Service Endpoints** - Backend, AnythingLLM, and Ollama endpoints
 - **Microphone access** in your browser
 
 ### Setup Steps
@@ -87,16 +87,27 @@ View your app in AI Studio: https://ai.studio/apps/drive/129UWr-WSACDH_B1WBLuIyo
    cp .env.local.example .env.local
    ```
    
-   Edit `.env.local` and add your service endpoints:
-   ```env
-   FASTRTC_API_URL=https://your-fastrtc-gateway.example
-   FASTER_WHISPER_API_URL=https://your-whisper-service.example
-   VOICEFLOW_API_URL=https://your-voiceflow-runtime.example
-   OLLAMA_API_URL=http://localhost:11434
-   PIPER_API_URL=https://your-piper-tts.example
+Edit `.env.local` and add your service endpoints:
+```env
+BACKEND_API_URL=http://localhost:8080
+BACKEND_WS_URL=ws://localhost:8080
+OLLAMA_API_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.1
+ANYTHINGLLM_API_URL=http://localhost:3001/api
+ANYTHINGLLM_API_KEY=your_anythingllm_api_key
+ANYTHINGLLM_WORKSPACE_SLUG=your_workspace_slug
+TWILIO_ACCOUNT_SID=your_twilio_account_sid
+TWILIO_AUTH_TOKEN=your_twilio_auth_token
+TWILIO_CALLER_ID=+15551231234
+ALLOWED_ORIGINS=*
+```
+
+4. **Start the backend server**
+   ```bash
+   node server/twilio-server.mjs
    ```
 
-4. **Start the development server**
+5. **Start the development server**
    ```bash
    npm run dev
    ```
@@ -201,7 +212,8 @@ npm run android:build       # Build signed release APK
 ### Starting Call Screening
 
 1. Click **"Start AI Secretary"** to activate call screening mode
-2. The AI will begin listening and processing incoming calls (Note: Currently uses simulated calls for demonstration)
+2. Configure your Twilio webhook to point to `POST /twilio/voice` on the backend and set `PUBLIC_URL`
+3. Speak the wake word to open the console and monitor live call transcripts (default: "Secretary")
 3. The AI Secretary will greet callers and ask for their name and purpose
 4. Watch the real-time transcription in the console as the conversation unfolds
 
@@ -305,7 +317,7 @@ aisec/
 
 - **Frontend**: React 19.2 with TypeScript
 - **Build Tool**: Vite 6.2
-- **AI/ML**: FastRTC + Faster-Whisper + Voiceflow + Ollama + Piper (Pipecat orchestrated)
+- **AI/ML**: Twilio Programmable Voice + AnythingLLM + Ollama
 - **Audio**: Web Audio API
 - **Styling**: Tailwind CSS (inline)
 - **Icons**: Font Awesome
@@ -371,7 +383,7 @@ For security concerns, please review our [Security Policy](SECURITY.md).
 
 ## 🙏 Acknowledgments
 
-- Powered by FastRTC, Faster-Whisper, Voiceflow, Ollama, Piper, and Pipecat
+- Powered by Twilio, AnythingLLM, and Ollama
 - Built with [React](https://reactjs.org/) and [Vite](https://vitejs.dev/)
 - Icons by [Font Awesome](https://fontawesome.com/)
 

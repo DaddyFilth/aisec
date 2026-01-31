@@ -83,7 +83,7 @@ See [ANDROID_BUILD.md](ANDROID_BUILD.md) for detailed setup instructions.
 
 ### 🔐 Security Notes
 
-1. **Service Endpoints**: Configure FastRTC, Faster-Whisper, Voiceflow, Ollama, and Piper endpoints via environment variables.
+1. **Service Endpoints**: Configure backend, AnythingLLM, Ollama, and Twilio endpoints via environment variables.
    - Use environment-specific configurations
    - Consider backend proxies for production routing
    - Never commit secrets or internal URLs to public repositories

@@ -3,12 +3,12 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { CallStatus, CallLog, SecretaryConfig, Contact } from './types';
 import { Capacitor } from '@capacitor/core';
 
-const getEndpointOrDefault = (value?: string) => value || 'not configured';
-
 const App: React.FC = () => {
   // --- State ---
   const [status, setStatus] = useState<CallStatus>(CallStatus.IDLE);
   const [microphonePermission, setMicrophonePermission] = useState<'granted' | 'denied' | 'prompt'>('prompt');
+  const [backendStatus, setBackendStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
+  const [wakeStatus, setWakeStatus] = useState<'idle' | 'listening' | 'triggered' | 'error'>('idle');
   const [config, setConfig] = useState<SecretaryConfig>({
     ownerName: 'Alex',
     forwardingNumber: '+1 (555) 012-3456',
@@ -17,9 +17,10 @@ const App: React.FC = () => {
     echoCancellation: true,
     autoGainControl: true,
     languageFocus: 'en-US',
-    transcriptionEngine: 'Faster-Whisper',
-    orchestrationEngine: 'Voiceflow',
-    speechSynthesisEngine: 'Piper'
+    transcriptionEngine: 'Twilio Voice',
+    orchestrationEngine: 'AnythingLLM',
+    speechSynthesisEngine: 'Ollama',
+    wakeName: 'Secretary'
   });
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [blockedNumbers, setBlockedNumbers] = useState<string[]>([]);
@@ -30,38 +31,40 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'history' | 'contacts'>('history');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
-  const [currentlyPlayingId, setCurrentlyPlayingId] = useState<string | null>(null);
 
   // --- Refs for Audio & Session ---
-  const sessionRef = useRef<any>(null);
-  const inputAudioCtxRef = useRef<AudioContext | null>(null);
-  const outputAudioCtxRef = useRef<AudioContext | null>(null);
-  const nextStartTimeRef = useRef<number>(0);
-  const audioSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
-  const micStreamRef = useRef<MediaStream | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const audioPlaybackRef = useRef<HTMLAudioElement | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const wakeRecognitionRef = useRef<any>(null);
   const consoleEndRef = useRef<HTMLDivElement>(null);
-  const activeCallIdRef = useRef<string | null>(null);
-  const scheduledTimeoutsRef = useRef<number[]>([]);
-  // Delay before secretary greets caller.
-  const DEMO_DELAY_GREETING = 500;
-  // Delay before caller responds.
-  const DEMO_DELAY_CALLER_RESPONSE = 1200;
-  // Delay before Voiceflow/Ollama intent notice.
-  const DEMO_DELAY_INTENT = 1800;
-  // Delay before handoff to owner decision.
-  const DEMO_DELAY_HANDOFF = 2400;
-  const DEMO_CALLER_RESPONSE = 'Hi, this is Jordan from Horizon Labs about the proposal.';
-  // Refs are stable; avoid re-creating timers between renders.
-  const scheduleDemoStep = useCallback((delay: number, action: () => void, callId: string) => {
-    const timeoutId = window.setTimeout(() => {
-      if (activeCallIdRef.current !== callId) return;
-      action();
-    }, delay);
-    scheduledTimeoutsRef.current.push(timeoutId);
+  const backendApiUrl = process.env.BACKEND_API_URL;
+  const backendWsUrl = process.env.BACKEND_WS_URL || (backendApiUrl ? backendApiUrl.replace(/^http/, 'ws') : '');
+
+  // Stable callback for adding console lines
+  // Empty dependency array is safe because setTranscription is a stable setter from useState
+  const addConsoleLine = useCallback((role: string, text: string, type: 'info' | 'message' | 'system' = 'message') => {
+    const timestamp = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    setTranscription(prev => [...prev, { timestamp, role, text, type }]);
   }, []);
+
+  const requestMicrophonePermission = useCallback(async (): Promise<boolean> => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      addConsoleLine('ERROR', 'Microphone access not supported in this browser.', 'system');
+      return false;
+    }
+    try {
+      if (Capacitor.isNativePlatform()) {
+        addConsoleLine('SYSTEM', 'Requesting microphone access...', 'info');
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(track => track.stop());
+      setMicrophonePermission('granted');
+      return true;
+    } catch (error) {
+      setMicrophonePermission('denied');
+      addConsoleLine('ERROR', 'Microphone permission denied.', 'system');
+      return false;
+    }
+  }, [addConsoleLine]);
 
   // --- Persistence ---
   useEffect(() => {
@@ -80,6 +83,26 @@ const App: React.FC = () => {
     const savedConfig = localStorage.getItem('ai_sec_config');
     if (savedConfig) setConfig(JSON.parse(savedConfig));
   }, []);
+
+  useEffect(() => {
+    if (!backendApiUrl) return;
+    const checkBackend = async () => {
+      setBackendStatus('connecting');
+      try {
+        const response = await fetch(`${backendApiUrl}/health`);
+        if (!response.ok) throw new Error('Health check failed');
+        setBackendStatus('connected');
+      } catch (error) {
+        console.error('Backend health check failed', error);
+        setBackendStatus('error');
+      }
+    };
+    checkBackend();
+  }, [backendApiUrl]);
+
+  useEffect(() => {
+    requestMicrophonePermission();
+  }, [requestMicrophonePermission]);
 
   useEffect(() => {
     localStorage.setItem('ai_sec_contacts', JSON.stringify(contacts));
@@ -101,12 +124,6 @@ const App: React.FC = () => {
   useEffect(() => {
     consoleEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [transcription]);
-
-  useEffect(() => () => clearDemoTimeouts(), [clearDemoTimeouts]);
-  
-  useEffect(() => {
-    activeCallIdRef.current = activeCallId;
-  }, [activeCallId]);
 
   // --- Helpers ---
   const addLog = useCallback((log: CallLog) => {
@@ -170,65 +187,6 @@ const App: React.FC = () => {
     setBlockedNumbers(prev => prev.filter(n => n !== number));
   };
 
-  // Stable callback for adding console lines
-  // Empty dependency array is safe because setTranscription is a stable setter from useState
-  const addConsoleLine = useCallback((role: string, text: string, type: 'info' | 'message' | 'system' = 'message') => {
-    const timestamp = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    setTranscription(prev => [...prev, { timestamp, role, text, type }]);
-  }, []);
-
-  // --- Microphone Permission Handling ---
-  const requestMicrophonePermission = async (): Promise<boolean> => {
-    try {
-      // Check if we're on a native platform
-      if (Capacitor.isNativePlatform()) {
-        // On Android/iOS, request permission through browser's getUserMedia
-        // which will trigger the native permission dialog
-        addConsoleLine('SYSTEM', 'Requesting microphone access...', 'info');
-      }
-      
-      // Request permission via browser API (works on both web and native)
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      
-      // Close the stream immediately, we just needed to check permission
-      stream.getTracks().forEach(track => track.stop());
-      
-      setMicrophonePermission('granted');
-      addConsoleLine('SYSTEM', 'Microphone access granted.', 'info');
-      return true;
-    } catch (error: any) {
-      setMicrophonePermission('denied');
-      if (error.name === 'NotAllowedError') {
-        addConsoleLine('ERROR', 'Microphone permission denied. Please grant permission in settings.', 'system');
-      } else if (error.name === 'NotFoundError') {
-        addConsoleLine('ERROR', 'No microphone found. Please connect a microphone device.', 'system');
-      } else {
-        addConsoleLine('ERROR', `Microphone error: ${error.message}`, 'system');
-      }
-      return false;
-    }
-  };
-
-  // Check microphone permission status on mount
-  useEffect(() => {
-    const checkPermission = async () => {
-      if (navigator.permissions && navigator.permissions.query) {
-        try {
-          const result = await navigator.permissions.query({ name: 'microphone' as PermissionName });
-          setMicrophonePermission(result.state as 'granted' | 'denied' | 'prompt');
-          
-          result.addEventListener('change', () => {
-            setMicrophonePermission(result.state as 'granted' | 'denied' | 'prompt');
-          });
-        } catch (err) {
-          // Permissions API not supported, will request on first use
-          console.log('Permissions API not supported');
-        }
-      }
-    };
-    checkPermission();
-  }, []);
-
   // --- Status UI Config ---
   const statusConfig = useMemo(() => {
     switch (status) {
@@ -290,209 +248,209 @@ const App: React.FC = () => {
   }, [status]);
 
   // --- Live API Management ---
-  const stopAudio = useCallback(() => {
-    audioSourcesRef.current.forEach(source => {
-      try { source.stop(); } catch(e) {}
-    });
-    audioSourcesRef.current.clear();
-    nextStartTimeRef.current = 0;
-  }, []);
-
-  const clearDemoTimeouts = useCallback(() => {
-    scheduledTimeoutsRef.current.forEach(timeoutId => window.clearTimeout(timeoutId));
-    scheduledTimeoutsRef.current = [];
-  }, []);
-
   const endSession = useCallback(async () => {
-    clearDemoTimeouts();
-    if (sessionRef.current) {
-      sessionRef.current.close();
-      sessionRef.current = null;
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
     }
-    if (inputAudioCtxRef.current) {
-      await inputAudioCtxRef.current.close();
-      inputAudioCtxRef.current = null;
-    }
-    if (outputAudioCtxRef.current) {
-      await outputAudioCtxRef.current.close();
-      outputAudioCtxRef.current = null;
-    }
-    if (micStreamRef.current) {
-      micStreamRef.current.getTracks().forEach(t => t.stop());
-      micStreamRef.current = null;
-    }
-    stopAudio();
-  }, [clearDemoTimeouts, stopAudio]);
+  }, []);
 
   const hangUp = useCallback(() => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-    }
     endSession();
     setStatus(CallStatus.IDLE);
     setActiveCallId(null);
     addConsoleLine('SYSTEM', 'Call session terminated.', 'system');
   }, [endSession, addConsoleLine]);
 
-  const startCall = async () => {
-    // Request microphone permission if not already granted
+  const startCall = useCallback(async () => {
     if (microphonePermission !== 'granted') {
       const permissionGranted = await requestMicrophonePermission();
       if (!permissionGranted) {
-        return; // Exit if permission denied
+        return;
       }
     }
-
-    const callId = Math.random().toString(36).substring(7).toUpperCase();
-    const callerNumber = `+1 (${Math.floor(Math.random()*900)+100}) ${Math.floor(Math.random()*900)+100}-${Math.floor(Math.random()*9000)+1000}`;
-    
-    if (blockedNumbers.includes(callerNumber)) {
-      addLog({
-        id: callId,
-        callerNumber,
-        timestamp: new Date(),
-        status: CallStatus.ENDED,
-        transcription: ["[System: Call blocked automatically]"],
-      });
-      addConsoleLine('SECURITY', `Auto-blocked incoming call from: ${callerNumber}`, 'system');
+    if (!backendApiUrl) {
+      addConsoleLine('ERROR', 'Backend API is not configured. Set BACKEND_API_URL.', 'system');
+      return;
+    }
+    if (wsRef.current) {
+      addConsoleLine('SYSTEM', 'Backend stream already connected.', 'info');
       return;
     }
 
-    const matchedContact = contacts.find(c => c.phoneNumber.replace(/\D/g,'') === callerNumber.replace(/\D/g,''));
-    
-    setActiveCallId(callId);
-    setTranscription([]);
-    setStatus(CallStatus.SCREENING);
-    addConsoleLine('SYSTEM', `Incoming call from ${matchedContact?.name || callerNumber}${matchedContact?.isVip ? ' [VIP]' : ''}`, 'system');
-    addConsoleLine('SYSTEM', 'AI Secretary initializing...', 'info');
-
-    // Determine Time of Day Greeting
-    const hour = new Date().getHours();
-    let timeGreeting = "Hello";
-    if (hour < 12) timeGreeting = "Good morning";
-    else if (hour < 17) timeGreeting = "Good afternoon";
-    else if (hour < 21) timeGreeting = "Good evening";
-    else timeGreeting = "Hello, apologies for the late hour";
-
-    // Build Personalized Greeting Instruction
-    let greetingSnippet = `${timeGreeting}, this is ${config.ownerName}'s assistant. Who is calling and why are you calling?`;
-    if (matchedContact) {
-      if (matchedContact.isVip) {
-        greetingSnippet = `${timeGreeting} ${matchedContact.name}! It's such a pleasure to hear from you. This is ${config.ownerName}'s assistant. How can I help you today?`;
-      } else {
-        greetingSnippet = `${timeGreeting} ${matchedContact.name}, this is ${config.ownerName}'s assistant. How can I help you today?`;
-      }
-    }
-
-    addLog({
-      id: callId,
-      callerNumber,
-      callerName: matchedContact?.name,
-      contact: matchedContact,
-      timestamp: new Date(),
-      status: CallStatus.SCREENING,
-      transcription: [],
-    });
-
     try {
-      try {
-        micStreamRef.current = await navigator.mediaDevices.getUserMedia({ 
-          audio: {
-            echoCancellation: config.echoCancellation,
-            noiseSuppression: config.noiseSuppression,
-            autoGainControl: config.autoGainControl,
-            sampleRate: 16000,
-            channelCount: 1
-          } 
-        });
-      } catch (micError: any) {
-        let errorMessage = 'Microphone access denied or unavailable.';
-        if (micError?.name === 'NotAllowedError') {
-          errorMessage = 'Microphone access denied. Please grant microphone permissions in your browser settings.';
-        } else if (micError?.name === 'NotFoundError') {
-          errorMessage = 'No microphone found. Please connect a microphone device.';
-        } else if (micError?.name === 'NotReadableError') {
-          errorMessage = 'Microphone is already in use by another application.';
-        }
-        addConsoleLine('ERROR', errorMessage, 'system');
-        throw micError;
+      const wsUrl = backendWsUrl ? `${backendWsUrl}/ws/call?client=ui` : '';
+      if (!wsUrl) {
+        throw new Error('BACKEND_WS_URL is not configured.');
       }
-
-      const endpoints = {
-        fastrtc: process.env.FASTRTC_API_URL, // TODO: wire into FastRTC transport client.
-        whisper: process.env.FASTER_WHISPER_API_URL, // TODO: send audio to Faster-Whisper endpoint.
-        voiceflow: process.env.VOICEFLOW_API_URL, // TODO: route transcripts to Voiceflow runtime.
-        ollama: process.env.OLLAMA_API_URL, // TODO: forward Voiceflow intents to Ollama via Pipecat.
-        piper: process.env.PIPER_API_URL // TODO: request Piper TTS audio.
+      wsRef.current = new WebSocket(wsUrl);
+      wsRef.current.onopen = () => {
+        addConsoleLine('SYSTEM', 'Subscribed to backend call stream.', 'info');
+        wsRef.current?.send(JSON.stringify({ type: 'subscribe', callId: '*' }));
       };
-      addConsoleLine('SYSTEM', `FastRTC transport online (${getEndpointOrDefault(endpoints.fastrtc)}).`, 'info');
-      addConsoleLine('SYSTEM', `Faster-Whisper transcription streaming (${getEndpointOrDefault(endpoints.whisper)}).`, 'info');
-      addConsoleLine('SYSTEM', `Voiceflow (${getEndpointOrDefault(endpoints.voiceflow)}) passing transcripts to Ollama via Pipecat.`, 'info');
-      addConsoleLine('SYSTEM', `Ollama inference ready (${getEndpointOrDefault(endpoints.ollama)}).`, 'info');
-      addConsoleLine('SYSTEM', `Piper speech synthesis ready (${getEndpointOrDefault(endpoints.piper)}).`, 'info');
-
-      scheduleDemoStep(DEMO_DELAY_GREETING, () => addConsoleLine('SECRETARY', greetingSnippet), callId);
-      scheduleDemoStep(DEMO_DELAY_CALLER_RESPONSE, () => addConsoleLine('CALLER', DEMO_CALLER_RESPONSE), callId);
-      scheduleDemoStep(DEMO_DELAY_INTENT, () => addConsoleLine('SYSTEM', 'Voiceflow completed intent analysis with Ollama via Pipecat.', 'info'), callId);
-      scheduleDemoStep(DEMO_DELAY_HANDOFF, () => {
-        addConsoleLine('SECRETARY', 'Thank you. Please hold for one moment while I check if they are available.');
-        setStatus(CallStatus.USER_DECIDING);
-        addConsoleLine('SYSTEM', 'Screening complete. Owner intervention required.', 'info');
-      }, callId);
+      wsRef.current.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (payload.type === 'call.start') {
+            const callerNumber = payload.from || 'Unknown caller';
+            if (blockedNumbers.includes(callerNumber)) {
+              addConsoleLine('SECURITY', `Auto-blocked incoming call from: ${callerNumber}`, 'system');
+              return;
+            }
+            const matchedContact = contacts.find(c => c.phoneNumber.replace(/\D/g,'') === callerNumber.replace(/\D/g,''));
+            setActiveCallId(payload.callId);
+            setTranscription([]);
+            setStatus(CallStatus.SCREENING);
+            addConsoleLine('SYSTEM', `Incoming call from ${matchedContact?.name || callerNumber}${matchedContact?.isVip ? ' [VIP]' : ''}`, 'system');
+            addConsoleLine('SYSTEM', 'AI Secretary initializing...', 'info');
+            addLog({
+              id: payload.callId,
+              callerNumber,
+              callerName: matchedContact?.name,
+              contact: matchedContact,
+              timestamp: new Date(),
+              status: CallStatus.SCREENING,
+              transcription: [],
+            });
+          }
+          if (payload.type === 'transcript') {
+            if (!activeCallId) setActiveCallId(payload.callId);
+            if (!payload.callId || payload.callId === activeCallId) {
+              addConsoleLine('CALLER', payload.text);
+            }
+          }
+          if (payload.type === 'assistant') {
+            if (!payload.callId || payload.callId === activeCallId) {
+              addConsoleLine('SECRETARY', payload.text);
+            }
+          }
+          if (payload.type === 'handoff') {
+            if (!payload.callId || payload.callId === activeCallId) {
+              setStatus(CallStatus.USER_DECIDING);
+              addConsoleLine('SYSTEM', 'Screening complete. Owner intervention required.', 'info');
+            }
+          }
+          if (payload.type === 'call.end') {
+            setStatus(CallStatus.IDLE);
+            setActiveCallId(null);
+            addConsoleLine('SYSTEM', 'Call ended.', 'info');
+          }
+        } catch (error) {
+          console.error('Failed to parse backend message', error);
+        }
+      };
+      wsRef.current.onerror = () => {
+        addConsoleLine('ERROR', 'Backend connection error.', 'system');
+      };
+      wsRef.current.onclose = () => {
+        addConsoleLine('SYSTEM', 'Backend stream closed.', 'info');
+        wsRef.current = null;
+      };
     } catch (err) {
       console.error("Failed to start call:", err);
-      setStatus(CallStatus.IDLE);
+      addConsoleLine('ERROR', 'Failed to connect to backend.', 'system');
     }
-  };
+  }, [microphonePermission, requestMicrophonePermission, backendApiUrl, backendWsUrl, addConsoleLine, blockedNumbers, contacts, activeCallId, addLog]);
 
   const handleAnswer = useCallback(async () => {
-    setStatus(CallStatus.CONNECTED);
-    updateActiveLog({ status: CallStatus.CONNECTED });
-    stopAudio();
-    addConsoleLine('SYSTEM', 'User accepted call. Patching audio through...', 'info');
-  }, [stopAudio, updateActiveLog, addConsoleLine]);
+    if (!backendApiUrl || !activeCallId) {
+      addConsoleLine('ERROR', 'No active call to connect.', 'system');
+      return;
+    }
+    const dest = activeCallLog?.contact?.customForwardingNumber ?? config.forwardingNumber;
+    try {
+      await fetch(`${backendApiUrl}/api/twilio/answer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ callId: activeCallId, to: dest })
+      });
+      setStatus(CallStatus.CONNECTED);
+      updateActiveLog({ status: CallStatus.CONNECTED });
+      addConsoleLine('SYSTEM', 'User accepted call. Patching audio through...', 'info');
+    } catch (error) {
+      addConsoleLine('ERROR', 'Failed to connect call.', 'system');
+    }
+  }, [backendApiUrl, activeCallId, updateActiveLog, addConsoleLine, activeCallLog, config.forwardingNumber]);
 
   const handleVoicemail = useCallback(async () => {
-    setStatus(CallStatus.VOICEMAIL);
-    updateActiveLog({ status: CallStatus.VOICEMAIL });
-    if (micStreamRef.current) {
-      audioChunksRef.current = [];
-      const recorder = new MediaRecorder(micStreamRef.current);
-      recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
-      recorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const audioUrl = URL.createObjectURL(audioBlob);
-        setCallLogs(prev => prev.map(log => log.id === activeCallId ? { ...log, voicemailAudioUrl: audioUrl } : log));
-      };
-      mediaRecorderRef.current = recorder;
-      recorder.start();
+    if (!backendApiUrl || !activeCallId) {
+      addConsoleLine('ERROR', 'No active call to send to voicemail.', 'system');
+      return;
     }
-    addConsoleLine('SECRETARY', `${config.ownerName} is not available. Please leave a message.`);
-    addConsoleLine('SYSTEM', 'Recording voicemail stream...', 'info');
-    setTimeout(() => {
-      addConsoleLine('SYSTEM', 'Voicemail captured and saved.', 'info');
-      setTimeout(hangUp, 2000);
-    }, 15000);
-  }, [config.ownerName, hangUp, activeCallId, updateActiveLog, addConsoleLine]);
+    try {
+      await fetch(`${backendApiUrl}/api/twilio/voicemail`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ callId: activeCallId })
+      });
+      setStatus(CallStatus.VOICEMAIL);
+      updateActiveLog({ status: CallStatus.VOICEMAIL });
+      addConsoleLine('SYSTEM', 'Caller routed to voicemail.', 'info');
+    } catch (error) {
+      addConsoleLine('ERROR', 'Failed to route to voicemail.', 'system');
+    }
+  }, [backendApiUrl, activeCallId, updateActiveLog, addConsoleLine]);
 
   const handleForward = useCallback(() => {
     const dest = activeCallLog?.contact?.customForwardingNumber ?? config.forwardingNumber;
-    setStatus(CallStatus.FORWARDING);
-    updateActiveLog({ status: CallStatus.FORWARDING });
-    addConsoleLine('SECRETARY', `Patching you through to ${dest}...`);
-    addConsoleLine('SYSTEM', `Redirecting call to ${dest}`, 'info');
-    setTimeout(hangUp, 3000);
-  }, [config.forwardingNumber, hangUp, updateActiveLog, activeCallLog, addConsoleLine]);
+    if (!backendApiUrl || !activeCallId) {
+      addConsoleLine('ERROR', 'No active call to forward.', 'system');
+      return;
+    }
+    fetch(`${backendApiUrl}/api/twilio/forward`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ callId: activeCallId, to: dest })
+    })
+      .then(() => {
+        setStatus(CallStatus.FORWARDING);
+        updateActiveLog({ status: CallStatus.FORWARDING });
+        addConsoleLine('SYSTEM', `Redirecting call to ${dest}`, 'info');
+      })
+      .catch(() => {
+        addConsoleLine('ERROR', 'Failed to forward call.', 'system');
+      });
+  }, [backendApiUrl, activeCallId, activeCallLog, config.forwardingNumber, updateActiveLog, addConsoleLine]);
 
-  const playVoicemail = (id: string, url: string) => {
-    if (currentlyPlayingId === id) { audioPlaybackRef.current?.pause(); setCurrentlyPlayingId(null); return; }
-    if (audioPlaybackRef.current) audioPlaybackRef.current.pause();
-    const audio = new Audio(url);
-    audio.onended = () => setCurrentlyPlayingId(null);
-    audio.onplay = () => setCurrentlyPlayingId(id);
-    audioPlaybackRef.current = audio;
-    audio.play();
-  };
+  useEffect(() => {
+    if (microphonePermission !== 'granted' || status !== CallStatus.IDLE) return;
+    const Recognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!Recognition) {
+      setWakeStatus('error');
+      addConsoleLine('ERROR', 'Speech recognition not supported in this browser.', 'system');
+      return;
+    }
+    const recognition = new Recognition();
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.lang = config.languageFocus;
+    recognition.onstart = () => setWakeStatus('listening');
+    recognition.onerror = () => setWakeStatus('error');
+    recognition.onresult = (event: any) => {
+      const lastResult = event.results[event.results.length - 1];
+      const transcript = lastResult[0]?.transcript?.toLowerCase() || '';
+      if (transcript.includes(config.wakeName.toLowerCase())) {
+        setWakeStatus('triggered');
+        addConsoleLine('SYSTEM', `Wake word "${config.wakeName}" detected. Starting call flow.`, 'info');
+        if (backendStatus === 'connected') {
+          startCall();
+        } else {
+          addConsoleLine('SYSTEM', 'Backend not ready. Wake word ignored.', 'info');
+        }
+      }
+    };
+    recognition.onend = () => {
+      if (wakeStatus !== 'error') {
+        recognition.start();
+      }
+    };
+    wakeRecognitionRef.current = recognition;
+    recognition.start();
+    return () => {
+      recognition.stop();
+      wakeRecognitionRef.current = null;
+    };
+  }, [microphonePermission, config.wakeName, config.languageFocus, addConsoleLine, startCall, wakeStatus, status, backendStatus]);
 
   useEffect(() => {
     if (activeCallId) {
@@ -563,6 +521,10 @@ const App: React.FC = () => {
                       <option value="Charon">Charon (Deep)</option>
                       <option value="Fenrir">Fenrir (Bold)</option>
                     </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Wake Name</label>
+                    <input type="text" value={config.wakeName} onChange={(e) => setConfig({...config, wakeName: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm outline-none transition-all" />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-slate-500 uppercase">Linguistic Focus</label>
@@ -666,40 +628,41 @@ const App: React.FC = () => {
                 <div className="flex-1 p-6 font-mono text-xs overflow-y-auto scrollbar-hide space-y-2 bg-slate-950/20 relative">
                   {status === CallStatus.IDLE ? (
                     <div className="h-full flex flex-col items-center justify-center text-center space-y-6 opacity-60">
-                       <i className="fa-solid fa-shield-halved text-4xl text-slate-700"></i>
+                        <i className="fa-solid fa-shield-halved text-4xl text-slate-700"></i>
                        <div className="space-y-2">
                           <p className="font-black uppercase tracking-[0.2em] text-slate-500">AI Secretary Ready</p>
-                          <p className="text-[10px] max-w-xs text-slate-600">
-                            {microphonePermission === 'granted' 
-                              ? 'Ready to screen incoming calls with AI-powered assistance.'
-                              : 'Microphone access required to screen calls. Click below to grant permission.'}
-                          </p>
+                         <p className="text-[10px] max-w-xs text-slate-600">
+                          {backendStatus === 'connected'
+                            ? `Backend online. Wake word "${config.wakeName}" listening: ${wakeStatus === 'listening' ? 'on' : 'off'}.`
+                            : 'Backend offline. Configure BACKEND_API_URL to start.'}
+                        </p>
                        </div>
                        <button 
                          onClick={startCall} 
-                         className={`px-8 py-3 border rounded-xl font-black uppercase tracking-widest transition-all shadow-indigo-500/10 flex items-center gap-2 ${
-                           microphonePermission === 'denied' 
-                             ? 'bg-red-600/10 border-red-500/20 text-red-400 hover:bg-red-600 hover:text-white'
-                             : 'bg-indigo-600/10 border-indigo-500/20 text-indigo-400 hover:bg-indigo-600 hover:text-white'
-                         }`}
-                       >
-                         {microphonePermission === 'granted' ? (
-                           <>
-                             <i className="fa-solid fa-phone-volume"></i>
-                             Start AI Secretary
-                           </>
-                         ) : microphonePermission === 'denied' ? (
-                           <>
-                             <i className="fa-solid fa-microphone-slash"></i>
-                             Grant Microphone Access
-                           </>
-                         ) : (
-                           <>
-                             <i className="fa-solid fa-microphone"></i>
-                             Enable Call Screening
-                           </>
-                         )}
-                       </button>
+                          className={`px-8 py-3 border rounded-xl font-black uppercase tracking-widest transition-all shadow-indigo-500/10 flex items-center gap-2 ${
+                            backendStatus === 'error'
+                              ? 'bg-red-600/10 border-red-500/20 text-red-400 hover:bg-red-600 hover:text-white'
+                              : 'bg-indigo-600/10 border-indigo-500/20 text-indigo-400 hover:bg-indigo-600 hover:text-white'
+                          }`}
+                          disabled={backendStatus !== 'connected'}
+                        >
+                          {backendStatus === 'connected' ? (
+                            <>
+                              <i className="fa-solid fa-phone-volume"></i>
+                              Start AI Secretary
+                            </>
+                          ) : backendStatus === 'error' ? (
+                            <>
+                              <i className="fa-solid fa-server"></i>
+                              Backend Offline
+                            </>
+                          ) : (
+                            <>
+                              <i className="fa-solid fa-server"></i>
+                              Checking Backend
+                            </>
+                          )}
+                        </button>
                     </div>
                   ) : (
                     <>
@@ -811,7 +774,6 @@ const App: React.FC = () => {
                         <div key={log.id} onClick={() => setExpandedLogId(expandedLogId === log.id ? null : log.id)} className={`bg-slate-800/80 p-5 rounded-[1.75rem] border transition-all cursor-pointer ${expandedLogId === log.id ? 'border-indigo-500 scale-[1.02] shadow-indigo-500/10 shadow-lg' : 'border-slate-700 hover:border-slate-600'}`}>
                           <div className="flex justify-between items-center mb-2">
                             <span className="text-[10px] font-black text-indigo-500 uppercase tracking-tighter">SESS_ID: {log.id}</span>
-                            {log.voicemailAudioUrl && <button onClick={(e) => { e.stopPropagation(); playVoicemail(log.id, log.voicemailAudioUrl!); }} className="w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500 hover:text-white flex items-center justify-center transition-all"><i className={`fa-solid ${currentlyPlayingId === log.id ? 'fa-pause' : 'fa-play'} text-[8px]`}></i></button>}
                           </div>
                           <p className="text-sm font-black text-slate-100 truncate">{log.callerName || log.callerNumber}</p>
                           <p className="text-[9px] text-slate-500 font-mono mt-0.5">{log.timestamp.toLocaleString()}</p>
@@ -878,7 +840,7 @@ const App: React.FC = () => {
           <div className="flex items-center gap-3">
              <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">v2.5.0-flash</span>
               <div className="px-3 py-1 bg-slate-800 rounded-full border border-slate-700">
-                 <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">FastRTC Stack</span>
+                 <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Twilio Stack</span>
               </div>
           </div>
         </div>
