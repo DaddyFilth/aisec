@@ -140,10 +140,10 @@ const App: React.FC = () => {
     setBlockedNumbers(prev => prev.filter(n => n !== number));
   };
 
-  const addConsoleLine = (role: string, text: string, type: 'info' | 'message' | 'system' = 'message') => {
+  const addConsoleLine = useCallback((role: string, text: string, type: 'info' | 'message' | 'system' = 'message') => {
     const timestamp = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
     setTranscription(prev => [...prev, { timestamp, role, text, type }]);
-  };
+  }, []);
 
   // --- Status UI Config ---
   const statusConfig = useMemo(() => {
@@ -242,7 +242,7 @@ const App: React.FC = () => {
     setStatus(CallStatus.IDLE);
     setActiveCallId(null);
     addConsoleLine('SYSTEM', 'Call session terminated.', 'system');
-  }, [endSession]);
+  }, [endSession, addConsoleLine]);
 
   const startCall = async () => {
     const callId = Math.random().toString(36).substring(7).toUpperCase();
@@ -301,15 +301,20 @@ const App: React.FC = () => {
       inputAudioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
       outputAudioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
       
-      micStreamRef.current = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: config.echoCancellation,
-          noiseSuppression: config.noiseSuppression,
-          autoGainControl: config.autoGainControl,
-          sampleRate: 16000,
-          channelCount: 1
-        } 
-      });
+      try {
+        micStreamRef.current = await navigator.mediaDevices.getUserMedia({ 
+          audio: {
+            echoCancellation: config.echoCancellation,
+            noiseSuppression: config.noiseSuppression,
+            autoGainControl: config.autoGainControl,
+            sampleRate: 16000,
+            channelCount: 1
+          } 
+        });
+      } catch (micError) {
+        addConsoleLine('ERROR', 'Microphone access denied or unavailable.', 'system');
+        throw micError;
+      }
 
       const sessionPromise = ai.live.connect({
         model: 'gemini-2.5-flash-native-audio-preview-12-2025',
@@ -393,7 +398,7 @@ const App: React.FC = () => {
     updateActiveLog({ status: CallStatus.CONNECTED });
     stopAudio();
     addConsoleLine('SYSTEM', 'User accepted call. Patching audio through...', 'info');
-  }, [stopAudio, updateActiveLog]);
+  }, [stopAudio, updateActiveLog, addConsoleLine]);
 
   const handleVoicemail = useCallback(async () => {
     setStatus(CallStatus.VOICEMAIL);
@@ -416,16 +421,16 @@ const App: React.FC = () => {
       addConsoleLine('SYSTEM', 'Voicemail captured and saved.', 'info');
       setTimeout(hangUp, 2000);
     }, 15000);
-  }, [config.ownerName, hangUp, activeCallId, updateActiveLog]);
+  }, [config.ownerName, hangUp, activeCallId, updateActiveLog, addConsoleLine]);
 
   const handleForward = useCallback(() => {
-    const dest = activeCallLog?.contact?.customForwardingNumber || config.forwardingNumber;
+    const dest = activeCallLog?.contact?.customForwardingNumber ?? config.forwardingNumber;
     setStatus(CallStatus.FORWARDING);
     updateActiveLog({ status: CallStatus.FORWARDING });
     addConsoleLine('SECRETARY', `Patching you through to ${dest}...`);
     addConsoleLine('SYSTEM', `Redirecting call to ${dest}`, 'info');
     setTimeout(hangUp, 3000);
-  }, [config.forwardingNumber, hangUp, updateActiveLog, activeCallLog]);
+  }, [config.forwardingNumber, hangUp, updateActiveLog, activeCallLog, addConsoleLine]);
 
   const playVoicemail = (id: string, url: string) => {
     if (currentlyPlayingId === id) { audioPlaybackRef.current?.pause(); setCurrentlyPlayingId(null); return; }
@@ -499,7 +504,7 @@ const App: React.FC = () => {
                 <div className="space-y-4">
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-slate-500 uppercase">Voice Model</label>
-                    <select value={config.secretaryVoice} onChange={(e) => setConfig({...config, secretaryVoice: e.target.value as any})} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm outline-none cursor-pointer">
+                    <select value={config.secretaryVoice} onChange={(e) => setConfig({...config, secretaryVoice: e.target.value as SecretaryConfig['secretaryVoice']})} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm outline-none cursor-pointer">
                       <option value="Kore">Kore (Standard)</option>
                       <option value="Zephyr">Zephyr (Bright)</option>
                       <option value="Puck">Puck (Fast)</option>
