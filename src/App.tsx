@@ -17,7 +17,7 @@ const App: React.FC = () => {
     echoCancellation: true,
     autoGainControl: true,
     languageFocus: 'en-US',
-    transcriptionEngine: 'Twilio Voice',
+    transcriptionEngine: 'SignalWire Voice',
     orchestrationEngine: 'AnythingLLM',
     speechSynthesisEngine: 'Ollama',
     wakeName: 'Secretary'
@@ -361,7 +361,7 @@ const App: React.FC = () => {
     }
     const dest = activeCallLog?.contact?.customForwardingNumber ?? config.forwardingNumber;
     try {
-      await fetch(`${backendApiUrl}/api/twilio/answer`, {
+      await fetch(`${backendApiUrl}/api/signalwire/answer`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -383,7 +383,7 @@ const App: React.FC = () => {
       return;
     }
     try {
-      await fetch(`${backendApiUrl}/api/twilio/voicemail`, {
+      await fetch(`${backendApiUrl}/api/signalwire/voicemail`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -405,7 +405,7 @@ const App: React.FC = () => {
       addConsoleLine('ERROR', 'No active call to forward.', 'system');
       return;
     }
-    fetch(`${backendApiUrl}/api/twilio/forward`, {
+    fetch(`${backendApiUrl}/api/signalwire/forward`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -851,7 +851,7 @@ const App: React.FC = () => {
           <div className="flex items-center gap-3">
              <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">v2.5.0-flash</span>
               <div className="px-3 py-1 bg-slate-800 rounded-full border border-slate-700">
-                 <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Twilio Stack</span>
+                 <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">SignalWire Stack</span>
               </div>
           </div>
         </div>

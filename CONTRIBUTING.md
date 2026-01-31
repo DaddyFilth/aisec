@@ -31,6 +31,7 @@ We welcome feature suggestions! Please create a feature request issue with:
    - Run `npm run build` to ensure it builds successfully
    - Test the application with `npm run dev`
    - Verify TypeScript types with `npx tsc --noEmit`
+   - Run unit tests with `npm run test`
 4. **Commit your changes**:
    - Use clear, descriptive commit messages
    - Reference issue numbers if applicable
@@ -44,7 +45,7 @@ We welcome feature suggestions! Please create a feature request issue with:
 1. Clone the repository
 2. Navigate to the project directory: `cd aisec`
 3. Install dependencies: `npm install`
-4. Copy `.env.local.example` to `.env.local` and add your backend, Twilio, AnythingLLM, and Ollama credentials
+4. Copy `.env.local.example` to `.env.local` and add your backend, SignalWire, AnythingLLM, and Ollama credentials
 5. Start backend server: `node server/twilio-server.mjs`
 6. Start development server: `npm run dev`
 
