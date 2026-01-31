@@ -56,7 +56,7 @@ We use automated tools to keep dependencies up to date:
 - **GitHub Actions** runs weekly dependency checks
 - Manual update scripts are available in `package.json`
 
-For detailed information about managing dependencies, see [DEPENDENCY_MANAGEMENT.md](DEPENDENCY_MANAGEMENT.md).
+For detailed information about managing dependencies, see [DEPENDENCY_MANAGEMENT.md](docs/DEPENDENCY_MANAGEMENT.md).
 
 **Quick commands:**
 - Check for updates: `npm run deps:check`

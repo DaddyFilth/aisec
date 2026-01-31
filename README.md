@@ -130,13 +130,13 @@ For detailed Android build instructions, including:
 - Troubleshooting
 - Distribution options
 
-👉 See the complete [Android Build Guide](ANDROID_BUILD.md)
+👉 See the complete [Android Build Guide](docs/ANDROID_BUILD.md)
 
 #### Building on Android (Termux)
 
 You can also build the app directly on your Android device using Termux! The build system automatically detects Termux and applies necessary ARM64 compatibility fixes.
 
-👉 See the [Termux Build Guide](TERMUX_BUILD.md) for instructions
+👉 See the [Termux Build Guide](docs/TERMUX_BUILD.md) for instructions
 
 ### Available Android Scripts
 
@@ -272,7 +272,7 @@ aisec/
 
 We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
 
-For information about managing dependencies, see [DEPENDENCY_MANAGEMENT.md](DEPENDENCY_MANAGEMENT.md).
+For information about managing dependencies, see [DEPENDENCY_MANAGEMENT.md](docs/DEPENDENCY_MANAGEMENT.md).
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
