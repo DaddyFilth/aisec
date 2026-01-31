@@ -91,6 +91,7 @@ const validateSignalWireRequest = (req, res, next) => {
 
 const validatePhone = (value) => PHONE_REGEX.test(value || '');
 
+// Accept Twilio-style CA-prefixed SIDs and SignalWire UUID call IDs.
 const validateCallId = (value) => /^(CA[0-9a-f]{32}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.test(value || '');
 
 if (!SIGNALWIRE_PROJECT_ID || !SIGNALWIRE_API_TOKEN || !SIGNALWIRE_SPACE_URL) {
@@ -319,8 +320,11 @@ app.post('/api/signalwire/outbound', requireApiKey, async (req, res) => {
   if (!to) {
     return res.status(400).json({ error: 'to is required' });
   }
-  if (!validatePhone(to) || !SIGNALWIRE_TWIML_URL) {
-    return res.status(400).json({ error: 'Invalid destination or LaML URL not configured' });
+  if (!validatePhone(to)) {
+    return res.status(400).json({ error: 'Invalid destination phone number' });
+  }
+  if (!SIGNALWIRE_TWIML_URL) {
+    return res.status(400).json({ error: 'SignalWire LaML URL not configured' });
   }
   try {
     const call = await signalwireClient.calls.create({
