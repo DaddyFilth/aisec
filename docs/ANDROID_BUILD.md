@@ -2,7 +2,7 @@
 
 This guide explains how to build AI Secretary as an Android APK file.
 
-> **⚡ Runtime Permissions**: The app now includes automatic runtime permission requests for microphone access. When users first launch the app, they'll be prompted to grant microphone permission, which is required for call screening functionality.
+> **⚡ Runtime Permissions**: The app now includes automatic runtime permission requests for microphone access. When users first launch the app, they'll be prompted to grant microphone permission, which is required for call screening functionality and wake name detection.
 
 > **🔧 Java Version Auto-Fix**: The build system now automatically handles Java version compatibility! If your system Java is incompatible (too old or too new), Gradle will automatically download and use JDK 17. You don't need to manually install or configure Java unless you want to.
 
@@ -314,7 +314,7 @@ To reduce APK size:
 2. Store keystore passwords securely
 3. Use different keystores for debug and release
 4. Keep a backup of your release keystore
-5. The Gemini API key should be stored securely (consider using environment-specific configs)
+5. Backend, AnythingLLM, Ollama, and Twilio credentials should be stored securely (consider using environment-specific configs)
 
 ## Additional Resources
 
