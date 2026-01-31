@@ -140,6 +140,8 @@ const App: React.FC = () => {
     setBlockedNumbers(prev => prev.filter(n => n !== number));
   };
 
+  // Stable callback for adding console lines
+  // Empty dependency array is safe because setTranscription is a stable setter from useState
   const addConsoleLine = useCallback((role: string, text: string, type: 'info' | 'message' | 'system' = 'message') => {
     const timestamp = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
     setTranscription(prev => [...prev, { timestamp, role, text, type }]);
@@ -311,8 +313,16 @@ const App: React.FC = () => {
             channelCount: 1
           } 
         });
-      } catch (micError) {
-        addConsoleLine('ERROR', 'Microphone access denied or unavailable.', 'system');
+      } catch (micError: any) {
+        let errorMessage = 'Microphone access denied or unavailable.';
+        if (micError?.name === 'NotAllowedError') {
+          errorMessage = 'Microphone access denied. Please grant microphone permissions in your browser settings.';
+        } else if (micError?.name === 'NotFoundError') {
+          errorMessage = 'No microphone found. Please connect a microphone device.';
+        } else if (micError?.name === 'NotReadableError') {
+          errorMessage = 'Microphone is already in use by another application.';
+        }
+        addConsoleLine('ERROR', errorMessage, 'system');
         throw micError;
       }
 

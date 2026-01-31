@@ -37,11 +37,16 @@ export async function decodeAudioData(
   return buffer;
 }
 
+// Clamp value to Int16 range [-32768, 32767]
+function clampToInt16(value: number): number {
+  return Math.max(-32768, Math.min(32767, value));
+}
+
 export function createBlob(data: Float32Array): { data: string; mimeType: string } {
   const l = data.length;
   const int16 = new Int16Array(l);
   for (let i = 0; i < l; i++) {
-    int16[i] = Math.max(-32768, Math.min(32767, data[i] * 32768));
+    int16[i] = clampToInt16(data[i] * 32768);
   }
   return {
     data: encode(new Uint8Array(int16.buffer)),
