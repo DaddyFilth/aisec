@@ -31,6 +31,7 @@ We welcome feature suggestions! Please create a feature request issue with:
    - Run `npm run build` to ensure it builds successfully
    - Test the application with `npm run dev`
    - Verify TypeScript types with `npx tsc --noEmit`
+   - Run unit tests with `npm run test`
 4. **Commit your changes**:
    - Use clear, descriptive commit messages
    - Reference issue numbers if applicable

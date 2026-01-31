@@ -8,6 +8,7 @@ import signalwire from '@signalwire/compatibility-api';
 import { WebSocketServer } from 'ws';
 import { callOllama } from './ollama-client.mjs';
 import { fetchChatHistory, sendChatMessage } from './anythingllm-client.mjs';
+import { normalizeAisecTimeout, isValidAisecPrompt } from './aisec-utils.mjs';
 
 dotenv.config();
 
@@ -49,10 +50,7 @@ const PUBLIC_URL = process.env.PUBLIC_URL;
 const BACKEND_API_KEY = process.env.BACKEND_API_KEY;
 const AISEC_API_URL = process.env.AISEC_API_URL;
 const AISEC_API_KEY = process.env.AISEC_API_KEY;
-const AISEC_TIMEOUT_MS = (() => {
-  const parsed = Number.parseInt(process.env.AISEC_TIMEOUT_MS ?? '5000', 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 5000;
-})();
+const AISEC_TIMEOUT_MS = normalizeAisecTimeout(process.env.AISEC_TIMEOUT_MS);
 const SIGNALWIRE_VALIDATE_WEBHOOKS = process.env.SIGNALWIRE_VALIDATE_WEBHOOKS !== 'false';
 const SIGNALWIRE_TWIML_URL = process.env.SIGNALWIRE_TWIML_URL;
 const PHONE_REGEX = /^\+[1-9]\d{1,14}$/;
@@ -284,7 +282,7 @@ app.post('/api/ai/process', requireApiKey, async (req, res) => {
       return res.status(400).json({ error: 'Invalid request body' });
     }
     const { prompt, sessionId, metadata } = req.body;
-    if (typeof prompt !== 'string' || !prompt.trim()) {
+    if (!isValidAisecPrompt(prompt)) {
       return res.status(400).json({ error: 'prompt must be a non-empty string' });
     }
     const controller = new AbortController();
