@@ -47,6 +47,9 @@ const ANYTHINGLLM_API_KEY = process.env.ANYTHINGLLM_API_KEY;
 const ANYTHINGLLM_WORKSPACE_SLUG = process.env.ANYTHINGLLM_WORKSPACE_SLUG;
 const PUBLIC_URL = process.env.PUBLIC_URL;
 const BACKEND_API_KEY = process.env.BACKEND_API_KEY;
+const AISEC_API_URL = process.env.AISEC_API_URL;
+const AISEC_API_KEY = process.env.AISEC_API_KEY;
+const AISEC_TIMEOUT_MS = Number.parseInt(process.env.AISEC_TIMEOUT_MS ?? '5000', 10);
 const SIGNALWIRE_VALIDATE_WEBHOOKS = process.env.SIGNALWIRE_VALIDATE_WEBHOOKS !== 'false';
 const SIGNALWIRE_TWIML_URL = process.env.SIGNALWIRE_TWIML_URL;
 const PHONE_REGEX = /^\+[1-9]\d{1,14}$/;
@@ -93,6 +96,8 @@ const validatePhone = (value) => PHONE_REGEX.test(value || '');
 
 // Accept Twilio-style CA-prefixed SIDs and SignalWire UUID call IDs.
 const validateCallId = (value) => /^(CA[0-9a-f]{32}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.test(value || '');
+
+const getAisecTimeout = () => (Number.isFinite(AISEC_TIMEOUT_MS) && AISEC_TIMEOUT_MS > 0 ? AISEC_TIMEOUT_MS : 5000);
 
 if (!SIGNALWIRE_PROJECT_ID || !SIGNALWIRE_API_TOKEN || !SIGNALWIRE_SPACE_URL) {
   console.warn('SignalWire credentials are not configured. Set SIGNALWIRE_PROJECT_ID, SIGNALWIRE_API_TOKEN, and SIGNALWIRE_SPACE_URL.');
@@ -266,6 +271,47 @@ app.post('/api/orchestrator-webhook', requireApiKey, async (req, res) => {
   } catch (error) {
     console.error('Orchestrator webhook error:', error);
     res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+app.post('/api/ai/process', requireApiKey, async (req, res) => {
+  try {
+    if (!AISEC_API_URL || !AISEC_API_KEY) {
+      return res.status(500).json({ error: 'AISEC API is not configured' });
+    }
+    const { prompt, sessionId, metadata } = req.body || {};
+    if (!prompt) {
+      return res.status(400).json({ error: 'prompt is required' });
+    }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), getAisecTimeout());
+    try {
+      const response = await fetch(AISEC_API_URL, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${AISEC_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          prompt,
+          sessionId,
+          metadata
+        })
+      });
+      if (!response.ok) {
+        const message = await response.text();
+        return res.status(502).json({ error: `AISEC API error: ${response.status} ${message}` });
+      }
+      const payload = await response.json();
+      return res.json(payload);
+    } finally {
+      clearTimeout(timeout);
+    }
+  } catch (error) {
+    const message = error?.name === 'AbortError' ? 'AISEC API timeout' : 'AISEC API request failed';
+    console.error('AISEC API error:', error);
+    return res.status(500).json({ error: message });
   }
 });
 
