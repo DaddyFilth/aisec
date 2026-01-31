@@ -12,8 +12,8 @@ This guide explains how to build AI Secretary as an Android APK file.
 2. **Java Development Kit (JDK)** 17 or 21
    - **CRITICAL:** Android Gradle Plugin 8.7.2 requires Java 17 or higher
    - **Using Java 11 or older will cause build errors:**
-     - Error: `Unsupported class file major version 69`
-     - Error: `BUG! exception in phase 'semantic analysis'`
+     - `Unsupported class file major version 69`
+     - `BUG! exception in phase 'semantic analysis'` (caused by Java version incompatibility)
    - Java 22+ is NOT supported and will cause build errors
    - Download JDK 17 from [Eclipse Temurin](https://adoptium.net/temurin/releases/?version=17) (recommended)
    - Or download JDK 21 from [Eclipse Temurin](https://adoptium.net/temurin/releases/?version=21)

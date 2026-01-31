@@ -11,11 +11,11 @@ if (javaVersionMajor < 17) {
     ║                                                                               ║
     ║  Your Java version is TOO OLD for this project!                              ║
     ║                                                                               ║
-    ║  Detected Java Version: ${javaVersion} (major version ${javaVersionMajor})                               ║
-    ║  Required Java Version: 17 or 21                                             ║
+    ║  Detected: Java ${javaVersion} (major version ${javaVersionMajor})
+    ║  Required: Java 17 or 21                                                     ║
     ║                                                                               ║
     ║  Android Gradle Plugin 8.7.2 requires Java 17 or higher.                     ║
-    ║  Using Java ${javaVersionMajor} will cause "Unsupported class file major version" errors.   ║
+    ║  Using Java ${javaVersionMajor} will cause "Unsupported class file major version" errors.
     ║                                                                               ║
     ║  SOLUTION:                                                                    ║
     ║  1. Install JDK 17 or JDK 21                                                 ║
