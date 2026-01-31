@@ -9,12 +9,16 @@ This guide explains how to build AI Secretary as an Android APK file.
 ### Required Software
 
 1. **Node.js** (v18 or higher)
-2. **Java Development Kit (JDK)** 17 or 21 (NOT Java 25)
-   - **IMPORTANT:** Android Gradle Plugin 8.7.2 requires Java 17 or 21
-   - Java 25 is NOT supported and will cause build errors
+2. **Java Development Kit (JDK)** 17 or 21
+   - **CRITICAL:** Android Gradle Plugin 8.7.2 requires Java 17 or higher
+   - **Using Java 11 or older will cause build errors:**
+     - Error: `Unsupported class file major version 69`
+     - Error: `BUG! exception in phase 'semantic analysis'`
+   - Java 22+ is NOT supported and will cause build errors
    - Download JDK 17 from [Eclipse Temurin](https://adoptium.net/temurin/releases/?version=17) (recommended)
-   - Or download from [Oracle](https://www.oracle.com/java/technologies/downloads/) or [OpenJDK](https://openjdk.org/)
+   - Or download JDK 21 from [Eclipse Temurin](https://adoptium.net/temurin/releases/?version=21)
    - Verify: `java -version` should show version 17.x.x or 21.x.x
+   - **The build will fail immediately if you use an incompatible Java version**
 
 3. **Android Studio** (recommended) or Android SDK Command-line Tools
    - Download from [Android Studio](https://developer.android.com/studio)
@@ -186,14 +190,18 @@ Or simply copy the APK file to your device and open it to install.
   ```
 
 ### "Unsupported class file major version 69"
-- This error occurs when trying to use Java 25, which is NOT supported
-- Major version 69 = Java 25
-- **Solution:** Use Java 17 or Java 21 instead
-- Android Gradle Plugin 8.7.2 and Gradle 8.9 only support up to Java 21
+- This error occurs when Gradle is running on Java 16 or older
+- Class file major version 69 corresponds to Java 21
+- Android Gradle Plugin 8.7.2 is compiled with Java 21 and requires Gradle to run on Java 17+
+- **Solution:** Upgrade to Java 17 or Java 21
 - Check your Java version:
   ```bash
-  java -version  # Should show version 17.x.x or 21.x.x (NOT 25.x.x)
+  java -version  # Should show version 17.x.x or 21.x.x (NOT 11.x.x or older)
   ```
+- If you have the correct Java version installed but still see this error:
+  - Make sure JAVA_HOME points to the correct JDK
+  - Stop all Gradle daemons: `cd android && ./gradlew --stop`
+  - Try the build again
 - If you have multiple Java versions installed:
   - **Linux/Mac:** Set JAVA_HOME to Java 17 or 21:
     ```bash
