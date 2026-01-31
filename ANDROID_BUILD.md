@@ -2,6 +2,8 @@
 
 This guide explains how to build AI Secretary as an Android APK file.
 
+> **⚡ Runtime Permissions**: The app now includes automatic runtime permission requests for microphone access. When users first launch the app, they'll be prompted to grant microphone permission, which is required for call screening functionality.
+
 ## Prerequisites
 
 ### Required Software
@@ -162,9 +164,14 @@ Or simply copy the APK file to your device and open it to install.
   ```
 
 ### Microphone permission not working
-- Ensure permissions are declared in `AndroidManifest.xml`
-- The app will request permissions at runtime
-- Grant microphone permission when prompted
+- Permissions are declared in `AndroidManifest.xml` (already configured)
+- **The app requests permissions at runtime** when you click "Enable Call Screening"
+- On first launch, Android will show a permission dialog - tap **"Allow"**
+- If you denied permission:
+  1. Go to Settings → Apps → AI Secretary → Permissions
+  2. Enable Microphone permission
+  3. Return to app and click "Grant Microphone Access"
+- The app won't function without microphone access as it needs to process voice calls
 
 ### App crashes on launch
 - Check logcat for errors:

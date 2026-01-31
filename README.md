@@ -139,12 +139,18 @@ npm run android:build       # Build release APK
 
 ## 📖 Usage
 
-### Starting a Call
+### First Time Setup
 
-1. Click the **"SIMULATE CALL"** button to initiate a test call
-2. Grant microphone permissions when prompted
-3. The AI Secretary will answer and greet the caller
-4. Watch the real-time transcription in the console
+1. **Grant Microphone Permission**: On first launch, click **"Enable Call Screening"** 
+2. Your browser or device will prompt for microphone access - click **Allow/Grant**
+3. Once permission is granted, the button will change to **"Start AI Secretary"**
+
+### Starting Call Screening
+
+1. Click **"Start AI Secretary"** to activate call screening mode
+2. The AI will begin listening and processing incoming calls (Note: Currently uses simulated calls for demonstration)
+3. The AI Secretary will greet callers and ask for their name and purpose
+4. Watch the real-time transcription in the console as the conversation unfolds
 
 ### Making Decisions
 
@@ -177,6 +183,23 @@ When the AI completes screening, you'll see three action buttons:
    - Call status and timestamp
    - Voicemail playback (if recorded)
 3. Use the search bar to filter logs
+
+### Permission Management
+
+#### Granting Permissions
+- **First Time**: Click "Enable Call Screening" and allow microphone access when prompted
+- **Web Browser**: Click "Allow" in the browser permission dialog
+- **Android**: The system will request microphone permission - tap "Allow"
+
+#### If Permission Denied
+- **Web**: Click the lock icon in the address bar → Site Settings → Microphone → Allow
+- **Android**: Go to Settings → Apps → AI Secretary → Permissions → Enable Microphone
+- After granting in settings, return to the app and click "Grant Microphone Access"
+
+#### Permission Status Indicators
+- ✅ **Ready**: Green button shows "Start AI Secretary" - ready to screen calls
+- ⚠️ **Permission Needed**: Blue button shows "Enable Call Screening" - click to request
+- ❌ **Access Denied**: Red button shows "Grant Microphone Access" - permission denied, check settings
 
 ## ⚙️ Configuration
 
