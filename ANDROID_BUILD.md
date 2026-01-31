@@ -9,9 +9,12 @@ This guide explains how to build AI Secretary as an Android APK file.
 ### Required Software
 
 1. **Node.js** (v18 or higher)
-2. **Java Development Kit (JDK)** 17 or higher
-   - Download from [Oracle](https://www.oracle.com/java/technologies/downloads/) or [OpenJDK](https://openjdk.org/)
-   - Verify: `java -version`
+2. **Java Development Kit (JDK)** 17 or 21 (NOT Java 25)
+   - **IMPORTANT:** Android Gradle Plugin 8.7.2 requires Java 17 or 21
+   - Java 25 is NOT supported and will cause build errors
+   - Download JDK 17 from [Eclipse Temurin](https://adoptium.net/temurin/releases/?version=17) (recommended)
+   - Or download from [Oracle](https://www.oracle.com/java/technologies/downloads/) or [OpenJDK](https://openjdk.org/)
+   - Verify: `java -version` should show version 17.x.x or 21.x.x
 
 3. **Android Studio** (recommended) or Android SDK Command-line Tools
    - Download from [Android Studio](https://developer.android.com/studio)
@@ -183,14 +186,29 @@ Or simply copy the APK file to your device and open it to install.
   ```
 
 ### "Unsupported class file major version 69"
-- This error occurs when Java version compatibility is misconfigured
-- The project is configured to use Java 17
-- Verify you have JDK 17 installed (not Java 21):
+- This error occurs when trying to use Java 25, which is NOT supported
+- Major version 69 = Java 25
+- **Solution:** Use Java 17 or Java 21 instead
+- Android Gradle Plugin 8.7.2 and Gradle 8.9 only support up to Java 21
+- Check your Java version:
   ```bash
-  java -version  # Should show version 17
+  java -version  # Should show version 17.x.x or 21.x.x (NOT 25.x.x)
   ```
-- If you have multiple Java versions, make sure JAVA_HOME points to JDK 17
-- The fix is already applied in `android/app/build.gradle` to override Capacitor's default Java 21 settings
+- If you have multiple Java versions installed:
+  - **Linux/Mac:** Set JAVA_HOME to Java 17 or 21:
+    ```bash
+    export JAVA_HOME=/path/to/jdk-17  # or jdk-21
+    ```
+  - **Windows:** Update JAVA_HOME environment variable:
+    ```cmd
+    setx JAVA_HOME "C:\Program Files\Java\jdk-17"  # or jdk-21
+    ```
+- **Recommended:** Install [Eclipse Temurin JDK 17](https://adoptium.net/temurin/releases/?version=17)
+- After fixing Java version, clean and rebuild:
+  ```bash
+  cd android && ./gradlew clean && cd ..
+  npm run android:build:debug
+  ```
 
 ### Microphone permission not working
 - Permissions are declared in `AndroidManifest.xml` (already configured)

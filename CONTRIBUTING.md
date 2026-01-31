@@ -49,6 +49,23 @@ We welcome feature suggestions! Please create a feature request issue with:
 
 **Note:** All npm commands must be run from the project root directory (where `package.json` is located).
 
+## Dependency Management
+
+We use automated tools to keep dependencies up to date:
+- **Dependabot** creates automated PRs for dependency updates
+- **GitHub Actions** runs weekly dependency checks
+- Manual update scripts are available in `package.json`
+
+For detailed information about managing dependencies, see [DEPENDENCY_MANAGEMENT.md](DEPENDENCY_MANAGEMENT.md).
+
+**Quick commands:**
+- Check for updates: `npm run deps:check`
+- Security audit: `npm run deps:audit`
+- Fix vulnerabilities: `npm run deps:audit:fix`
+- Update dependencies: `npm run deps:update`
+
+Always test after updating dependencies!
+
 ## Code Style
 
 - Use TypeScript for type safety

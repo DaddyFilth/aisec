@@ -119,7 +119,7 @@ cd aisec
 
 ### Prerequisites for Android Build
 
-- **Java Development Kit (JDK)** 17+
+- **Java Development Kit (JDK)** 17 or 21 (NOT Java 25)
 - **Android SDK** (via Android Studio or command-line tools)
 - **Gradle** (included via wrapper)
 
@@ -271,6 +271,8 @@ aisec/
 ## 🤝 Contributing
 
 We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+
+For information about managing dependencies, see [DEPENDENCY_MANAGEMENT.md](DEPENDENCY_MANAGEMENT.md).
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
