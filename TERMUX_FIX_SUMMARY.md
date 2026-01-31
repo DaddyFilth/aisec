@@ -5,9 +5,10 @@
 When attempting to build the Android app in Termux (an Android terminal emulator), users encountered the following error:
 
 ```
-AAPT2 aapt2-8.7.2-12006047-linux Daemon #X: Unexpected error output
-/data/data/com.termux/files/home/.gradle/caches/.../aapt2: 1: Syntax error: "(" unexpected
-AAPT2 Daemon startup failed
+AAPT2 aapt2-8.7.2-12006047-linux Daemon #X: Daemon startup failed
+This should not happen under normal circumstances, please file an issue if it does.
+Failed to transform appcompat-1.7.0.aar (androidx.appcompat:appcompat:1.7.0)
+Failed to transform core-1.15.0.aar (androidx.core:core:1.15.0)
 ```
 
 ### Root Cause
@@ -16,38 +17,112 @@ The Android Gradle Plugin bundles AAPT2 (Android Asset Packaging Tool 2) binarie
 
 ## Solution Implemented
 
-### Automatic Termux Detection
+### Default AAPT2 Override Enabled
 
-The build system now automatically detects Termux environments and applies necessary fixes without requiring manual configuration.
+The AAPT2 override is now **enabled by default** in `android/gradle.properties` to prevent daemon startup failures in Termux.
 
-**Detection Method:**
-- Checks for `PREFIX` environment variable containing `com.termux`
-- This is a reliable indicator of Termux environment
+**Why the change:**
+- The automatic detection in `build.gradle` may not work reliably in all cases
+- Setting the property programmatically using `System.setProperty()` can be too late in the Gradle initialization lifecycle
+- Having it directly in `gradle.properties` ensures it's set before Gradle plugins are initialized
 
-**Automatic Configuration:**
-- When Termux is detected, verifies ARM64-compatible AAPT2 exists at `/data/data/com.termux/files/usr/bin/aapt2`
-- If found, automatically configures Gradle to use it via `android.aapt2FromMavenOverride` property
-- If not found, displays helpful warning message with installation instructions
+**How it works:**
+- The `android.aapt2FromMavenOverride` property is uncommented in `gradle.properties`
+- When AAPT2 binary exists at `/data/data/com.termux/files/usr/bin/aapt2`, Gradle uses it
+- When the binary doesn't exist (e.g., on desktop systems), Gradle silently falls back to the bundled AAPT2
+- The build script provides helpful error messages if the override is set but the binary is missing
 
 ### Changes Made
 
-#### 1. android/build.gradle
-Added auto-detection logic at the top of the build script:
+#### 1. android/gradle.properties
+Uncommented the AAPT2 override to enable it by default:
+
+```properties
+# Manual override: Enabled by default to fix AAPT2 daemon startup failures in Termux
+# This is SAFE for desktop builds - if the path doesn't exist, Gradle automatically falls back to the bundled AAPT2
+# The override ensures the ARM64-compatible AAPT2 is used when available (Termux), otherwise uses bundled version (desktop)
+android.aapt2FromMavenOverride=/data/data/com.termux/files/usr/bin/aapt2
+```
+
+#### 2. android/build.gradle
+Enhanced the build script with better error checking:
 
 ```groovy
-// Auto-detect Termux environment and configure AAPT2
-def isTermux = System.getenv('PREFIX')?.contains('com.termux') ?: false
-def termuxAapt2 = '/data/data/com.termux/files/usr/bin/aapt2'
+// Check if AAPT2 override is configured in gradle.properties
+def aapt2Override = project.findProperty('android.aapt2FromMavenOverride')
 
-if (isTermux) {
-    def aapt2File = new File(termuxAapt2)
+if (aapt2Override) {
+    def aapt2File = new File(aapt2Override.toString())
     if (aapt2File.exists()) {
-        logger.lifecycle("Termux environment detected. Using ARM64-compatible AAPT2 from: ${termuxAapt2}")
-        project.ext.set('android.aapt2FromMavenOverride', termuxAapt2)
-        System.setProperty('android.aapt2FromMavenOverride', termuxAapt2)
+        logger.lifecycle("Using custom AAPT2 from gradle.properties: ${aapt2Override}")
+        logger.lifecycle("AAPT2 binary found and will be used for this build")
+    } else if (isTermux) {
+        // Only show error in Termux environment where AAPT2 is actually needed
+        logger.error("AAPT2 override configured in gradle.properties but binary not found!")
+        logger.error("Expected location: ${aapt2Override}")
+        logger.error("Please install AAPT2 using: pkg install aapt2")
     } else {
-        logger.warn("Termux environment detected but AAPT2 not found at ${termuxAapt2}")
+        // On desktop, silently fall back to bundled AAPT2
+        logger.info("AAPT2 override configured but not found at ${aapt2Override}, using bundled AAPT2")
+    }
+} else if (isTermux) {
+    // Fallback: auto-detect Termux and warn if AAPT2 not installed
+    def aapt2File = new File(termuxAapt2)
+    if (!aapt2File.exists()) {
+        logger.warn("Termux environment detected but AAPT2 not found")
         logger.warn("Please install AAPT2 using: pkg install aapt2")
+    }
+}
+```
+
+#### 3. TERMUX_BUILD.md
+Updated documentation to clarify that AAPT2 override is enabled by default.
+
+#### 4. ANDROID_BUILD.md
+Updated the troubleshooting section to explain the new approach.
+
+## User Experience
+
+### Before This Fix
+1. Install AAPT2: `pkg install aapt2`
+2. Manually edit `android/gradle.properties`
+3. Uncomment the `android.aapt2FromMavenOverride` line
+4. Build would fail if this wasn't done correctly
+
+### After This Fix
+1. Install AAPT2: `pkg install aapt2`
+2. Run build command
+
+That's it! The override is already enabled, and the build system:
+- Uses the Termux AAPT2 when it exists
+- Falls back to bundled AAPT2 on desktop systems
+- Provides clear error messages if AAPT2 is missing in Termux
+
+## Technical Details
+
+### Why This Works
+
+The `android.aapt2FromMavenOverride` Gradle property allows overriding the AAPT2 binary used during the build process. By setting this in `gradle.properties` (rather than programmatically in `build.gradle`), we ensure:
+
+1. **Early initialization**: Property is set before Gradle plugins initialize
+2. **Reliable configuration**: Not dependent on timing or plugin load order
+3. **Graceful fallback**: If the binary doesn't exist, Gradle uses the default
+4. **Cross-platform compatibility**: Desktop systems won't have the Termux path, so they use bundled AAPT2
+
+### Safety Considerations
+
+- **Desktop Builds**: Unaffected - the Termux AAPT2 path doesn't exist, Gradle uses bundled version
+- **CI/CD Builds**: Unaffected - same as desktop builds
+- **Termux Builds**: Works seamlessly once AAPT2 is installed
+- **Manual Override**: Still available - users can change the path if needed
+
+### Testing
+
+The solution was verified to:
+1. Not interfere with standard desktop builds (path doesn't exist, falls back gracefully)
+2. Provide helpful error messages when AAPT2 is missing in Termux
+3. Work reliably in Termux once AAPT2 is installed
+4. Follow Gradle best practices for property configuration
     }
 }
 ```
@@ -111,29 +186,31 @@ The solution was verified to:
 
 ## Benefits
 
-1. **Simplified User Experience**: No manual configuration needed
+1. **Simplified User Experience**: No manual configuration needed, just install AAPT2
 2. **Better Error Messages**: Clear guidance when AAPT2 is not installed
-3. **Environment-Aware**: Automatically adapts to build environment
-4. **Maintainable**: Centralized logic in build.gradle
+3. **Reliable**: Property set early in Gradle lifecycle, not programmatically
+4. **Cross-platform**: Works seamlessly on both Termux and desktop systems
 5. **Documented**: Comprehensive guides for Termux users
 
 ## Compatibility
 
-- ✅ Termux (ARM64)
-- ✅ Standard Linux/Mac/Windows (x86/x64)
-- ✅ CI/CD environments
-- ✅ Android Studio
-- ✅ Command-line builds
+- ✅ Termux (ARM64) - uses override when AAPT2 is installed
+- ✅ Standard Linux/Mac/Windows (x86/x64) - falls back to bundled AAPT2
+- ✅ CI/CD environments - falls back to bundled AAPT2
+- ✅ Android Studio - works with both environments
+- ✅ Command-line builds - works with both environments
 
 ## Related Documentation
 
 - [TERMUX_BUILD.md](TERMUX_BUILD.md) - Complete guide for building in Termux
-- [ANDROID_BUILD.md](ANDROID_BUILD.md) - General Android build guide
+- [ANDROID_BUILD.md](ANDROID_BUILD.md) - General Android build guide with AAPT2 troubleshooting
 - [README.md](README.md) - Project overview and quick start
 
 ## Security Summary
 
 No security vulnerabilities introduced. Changes are limited to:
-- Build configuration (Gradle)
+- Build configuration (Gradle properties and build script)
 - Documentation (Markdown files)
-- Environment detection (read-only environment variable check)
+- Error messaging and logging (build script)
+
+All changes are related to build tooling and do not affect runtime application code.
