@@ -11,7 +11,8 @@
     "android:open": "npx cap open android",
     "android:run": "npm run android:sync && npx cap run android",
     "android:build": "npm run build && npx cap sync android && cd android && ./gradlew assembleRelease",
-    "android:build:debug": "npm run build && npx cap sync android && cd android && ./gradlew assembleDebug"
+    "android:build:debug": "npm run build && npx cap sync android && cd android && ./gradlew assembleDebug",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.5",
@@ -24,7 +25,11 @@
   "devDependencies": {
     "@types/node": "^25.1.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "patch-package": "^8.0.1",
     "typescript": "~5.9.3",
     "vite": "^7.3.1"
+  },
+  "overrides": {
+    "tar": "7.5.7"
   }
 }
