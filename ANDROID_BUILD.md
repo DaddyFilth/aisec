@@ -231,10 +231,13 @@ This happens because the default AAPT2 binary from Android Gradle Plugin is comp
    # Should show "ARM aarch64" in the output
    ```
 
-3. The fix is already applied in `android/gradle.properties`:
+3. Edit `android/gradle.properties` and uncomment the AAPT2 override line:
    ```properties
+   # Uncomment this line:
    android.aapt2FromMavenOverride=/data/data/com.termux/files/usr/bin/aapt2
    ```
+   
+   **Important:** Do NOT uncomment this line on standard x86/x64 development machines. This override is ONLY needed for Termux/ARM64 builds.
 
 4. Clean and rebuild:
    ```bash
