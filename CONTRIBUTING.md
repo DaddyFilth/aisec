@@ -45,8 +45,8 @@ We welcome feature suggestions! Please create a feature request issue with:
 1. Clone the repository
 2. Navigate to the project directory: `cd aisec`
 3. Install dependencies: `npm install`
-4. Copy `.env.local.example` to `.env.local` and add your backend, SignalWire, AnythingLLM, and Ollama credentials
-5. Start backend server: `node server/twilio-server.mjs`
+4. Copy `.env.local.example` to `.env.local` and add your backend, Swireit, AnythingLLM, and Ollama credentials
+5. Start backend server: `node server/swireit-server.mjs`
 6. Start development server: `npm run dev`
 
 **Note:** All npm commands must be run from the project root directory (where `package.json` is located).
