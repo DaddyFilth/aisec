@@ -3,10 +3,12 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { GoogleGenAI, Modality, LiveServerMessage } from '@google/genai';
 import { CallStatus, CallLog, SecretaryConfig, Contact } from './types';
 import { createBlob, decode, decodeAudioData } from './utils/audio-utils';
+import { Capacitor } from '@capacitor/core';
 
 const App: React.FC = () => {
   // --- State ---
   const [status, setStatus] = useState<CallStatus>(CallStatus.IDLE);
+  const [microphonePermission, setMicrophonePermission] = useState<'granted' | 'denied' | 'prompt'>('prompt');
   const [config, setConfig] = useState<SecretaryConfig>({
     ownerName: 'Alex',
     forwardingNumber: '+1 (555) 012-3456',
@@ -140,10 +142,64 @@ const App: React.FC = () => {
     setBlockedNumbers(prev => prev.filter(n => n !== number));
   };
 
-  const addConsoleLine = (role: string, text: string, type: 'info' | 'message' | 'system' = 'message') => {
+  // Stable callback for adding console lines
+  // Empty dependency array is safe because setTranscription is a stable setter from useState
+  const addConsoleLine = useCallback((role: string, text: string, type: 'info' | 'message' | 'system' = 'message') => {
     const timestamp = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
     setTranscription(prev => [...prev, { timestamp, role, text, type }]);
+  }, []);
+
+  // --- Microphone Permission Handling ---
+  const requestMicrophonePermission = async (): Promise<boolean> => {
+    try {
+      // Check if we're on a native platform
+      if (Capacitor.isNativePlatform()) {
+        // On Android/iOS, request permission through browser's getUserMedia
+        // which will trigger the native permission dialog
+        addConsoleLine('SYSTEM', 'Requesting microphone access...', 'info');
+      }
+      
+      // Request permission via browser API (works on both web and native)
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      // Close the stream immediately, we just needed to check permission
+      stream.getTracks().forEach(track => track.stop());
+      
+      setMicrophonePermission('granted');
+      addConsoleLine('SYSTEM', 'Microphone access granted.', 'info');
+      return true;
+    } catch (error: any) {
+      setMicrophonePermission('denied');
+      if (error.name === 'NotAllowedError') {
+        addConsoleLine('ERROR', 'Microphone permission denied. Please grant permission in settings.', 'system');
+      } else if (error.name === 'NotFoundError') {
+        addConsoleLine('ERROR', 'No microphone found. Please connect a microphone device.', 'system');
+      } else {
+        addConsoleLine('ERROR', `Microphone error: ${error.message}`, 'system');
+      }
+      return false;
+    }
   };
+
+  // Check microphone permission status on mount
+  useEffect(() => {
+    const checkPermission = async () => {
+      if (navigator.permissions && navigator.permissions.query) {
+        try {
+          const result = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+          setMicrophonePermission(result.state as 'granted' | 'denied' | 'prompt');
+          
+          result.addEventListener('change', () => {
+            setMicrophonePermission(result.state as 'granted' | 'denied' | 'prompt');
+          });
+        } catch (err) {
+          // Permissions API not supported, will request on first use
+          console.log('Permissions API not supported');
+        }
+      }
+    };
+    checkPermission();
+  }, []);
 
   // --- Status UI Config ---
   const statusConfig = useMemo(() => {
@@ -242,9 +298,17 @@ const App: React.FC = () => {
     setStatus(CallStatus.IDLE);
     setActiveCallId(null);
     addConsoleLine('SYSTEM', 'Call session terminated.', 'system');
-  }, [endSession]);
+  }, [endSession, addConsoleLine]);
 
   const startCall = async () => {
+    // Request microphone permission if not already granted
+    if (microphonePermission !== 'granted') {
+      const permissionGranted = await requestMicrophonePermission();
+      if (!permissionGranted) {
+        return; // Exit if permission denied
+      }
+    }
+
     const callId = Math.random().toString(36).substring(7).toUpperCase();
     const callerNumber = `+1 (${Math.floor(Math.random()*900)+100}) ${Math.floor(Math.random()*900)+100}-${Math.floor(Math.random()*9000)+1000}`;
     
@@ -265,8 +329,8 @@ const App: React.FC = () => {
     setActiveCallId(callId);
     setTranscription([]);
     setStatus(CallStatus.SCREENING);
-    addConsoleLine('SYSTEM', `Incoming call detected from ${matchedContact?.name || callerNumber}${matchedContact?.isVip ? ' [VIP]' : ''}`, 'system');
-    addConsoleLine('SYSTEM', 'Initializing Gemini Live screening protocol...', 'info');
+    addConsoleLine('SYSTEM', `Incoming call from ${matchedContact?.name || callerNumber}${matchedContact?.isVip ? ' [VIP]' : ''}`, 'system');
+    addConsoleLine('SYSTEM', 'AI Secretary initializing...', 'info');
 
     // Determine Time of Day Greeting
     const hour = new Date().getHours();
@@ -301,15 +365,28 @@ const App: React.FC = () => {
       inputAudioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
       outputAudioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
       
-      micStreamRef.current = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: config.echoCancellation,
-          noiseSuppression: config.noiseSuppression,
-          autoGainControl: config.autoGainControl,
-          sampleRate: 16000,
-          channelCount: 1
-        } 
-      });
+      try {
+        micStreamRef.current = await navigator.mediaDevices.getUserMedia({ 
+          audio: {
+            echoCancellation: config.echoCancellation,
+            noiseSuppression: config.noiseSuppression,
+            autoGainControl: config.autoGainControl,
+            sampleRate: 16000,
+            channelCount: 1
+          } 
+        });
+      } catch (micError: any) {
+        let errorMessage = 'Microphone access denied or unavailable.';
+        if (micError?.name === 'NotAllowedError') {
+          errorMessage = 'Microphone access denied. Please grant microphone permissions in your browser settings.';
+        } else if (micError?.name === 'NotFoundError') {
+          errorMessage = 'No microphone found. Please connect a microphone device.';
+        } else if (micError?.name === 'NotReadableError') {
+          errorMessage = 'Microphone is already in use by another application.';
+        }
+        addConsoleLine('ERROR', errorMessage, 'system');
+        throw micError;
+      }
 
       const sessionPromise = ai.live.connect({
         model: 'gemini-2.5-flash-native-audio-preview-12-2025',
@@ -393,7 +470,7 @@ const App: React.FC = () => {
     updateActiveLog({ status: CallStatus.CONNECTED });
     stopAudio();
     addConsoleLine('SYSTEM', 'User accepted call. Patching audio through...', 'info');
-  }, [stopAudio, updateActiveLog]);
+  }, [stopAudio, updateActiveLog, addConsoleLine]);
 
   const handleVoicemail = useCallback(async () => {
     setStatus(CallStatus.VOICEMAIL);
@@ -416,16 +493,16 @@ const App: React.FC = () => {
       addConsoleLine('SYSTEM', 'Voicemail captured and saved.', 'info');
       setTimeout(hangUp, 2000);
     }, 15000);
-  }, [config.ownerName, hangUp, activeCallId, updateActiveLog]);
+  }, [config.ownerName, hangUp, activeCallId, updateActiveLog, addConsoleLine]);
 
   const handleForward = useCallback(() => {
-    const dest = activeCallLog?.contact?.customForwardingNumber || config.forwardingNumber;
+    const dest = activeCallLog?.contact?.customForwardingNumber ?? config.forwardingNumber;
     setStatus(CallStatus.FORWARDING);
     updateActiveLog({ status: CallStatus.FORWARDING });
     addConsoleLine('SECRETARY', `Patching you through to ${dest}...`);
     addConsoleLine('SYSTEM', `Redirecting call to ${dest}`, 'info');
     setTimeout(hangUp, 3000);
-  }, [config.forwardingNumber, hangUp, updateActiveLog, activeCallLog]);
+  }, [config.forwardingNumber, hangUp, updateActiveLog, activeCallLog, addConsoleLine]);
 
   const playVoicemail = (id: string, url: string) => {
     if (currentlyPlayingId === id) { audioPlaybackRef.current?.pause(); setCurrentlyPlayingId(null); return; }
@@ -499,7 +576,7 @@ const App: React.FC = () => {
                 <div className="space-y-4">
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-slate-500 uppercase">Voice Model</label>
-                    <select value={config.secretaryVoice} onChange={(e) => setConfig({...config, secretaryVoice: e.target.value as any})} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm outline-none cursor-pointer">
+                    <select value={config.secretaryVoice} onChange={(e) => setConfig({...config, secretaryVoice: e.target.value as SecretaryConfig['secretaryVoice']})} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm outline-none cursor-pointer">
                       <option value="Kore">Kore (Standard)</option>
                       <option value="Zephyr">Zephyr (Bright)</option>
                       <option value="Puck">Puck (Fast)</option>
@@ -609,13 +686,39 @@ const App: React.FC = () => {
                 <div className="flex-1 p-6 font-mono text-xs overflow-y-auto scrollbar-hide space-y-2 bg-slate-950/20 relative">
                   {status === CallStatus.IDLE ? (
                     <div className="h-full flex flex-col items-center justify-center text-center space-y-6 opacity-60">
-                       <i className="fa-solid fa-radar text-4xl text-slate-700 animate-spin-slow"></i>
+                       <i className="fa-solid fa-shield-halved text-4xl text-slate-700"></i>
                        <div className="space-y-2">
-                          <p className="font-black uppercase tracking-[0.2em] text-slate-500">System Monitoring Active</p>
-                          <p className="text-[10px] max-w-xs text-slate-600">Standing by for voice packet triggers or external line stimulation.</p>
+                          <p className="font-black uppercase tracking-[0.2em] text-slate-500">AI Secretary Ready</p>
+                          <p className="text-[10px] max-w-xs text-slate-600">
+                            {microphonePermission === 'granted' 
+                              ? 'Ready to screen incoming calls with AI-powered assistance.'
+                              : 'Microphone access required to screen calls. Click below to grant permission.'}
+                          </p>
                        </div>
-                       <button onClick={startCall} className="px-8 py-3 bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 hover:bg-indigo-600 hover:text-white rounded-xl font-black uppercase tracking-widest transition-all shadow-indigo-500/10">
-                         Force Receive Call
+                       <button 
+                         onClick={startCall} 
+                         className={`px-8 py-3 border rounded-xl font-black uppercase tracking-widest transition-all shadow-indigo-500/10 flex items-center gap-2 ${
+                           microphonePermission === 'denied' 
+                             ? 'bg-red-600/10 border-red-500/20 text-red-400 hover:bg-red-600 hover:text-white'
+                             : 'bg-indigo-600/10 border-indigo-500/20 text-indigo-400 hover:bg-indigo-600 hover:text-white'
+                         }`}
+                       >
+                         {microphonePermission === 'granted' ? (
+                           <>
+                             <i className="fa-solid fa-phone-volume"></i>
+                             Start AI Secretary
+                           </>
+                         ) : microphonePermission === 'denied' ? (
+                           <>
+                             <i className="fa-solid fa-microphone-slash"></i>
+                             Grant Microphone Access
+                           </>
+                         ) : (
+                           <>
+                             <i className="fa-solid fa-microphone"></i>
+                             Enable Call Screening
+                           </>
+                         )}
                        </button>
                     </div>
                   ) : (
