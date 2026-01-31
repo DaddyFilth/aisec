@@ -6,6 +6,8 @@ This guide explains how to build AI Secretary as an Android APK file.
 
 > **🔧 Java Version Auto-Fix**: The build system now automatically handles Java version compatibility! If your system Java is incompatible (too old or too new), Gradle will automatically download and use JDK 17. You don't need to manually install or configure Java unless you want to.
 
+> **🔧 Android SDK Auto-Setup**: The build system now automatically detects and configures your Android SDK! During `npm install`, the setup script will create `android/local.properties` with your SDK location. Manual configuration is only needed if auto-detection fails.
+
 ## Prerequisites
 
 ### Required Software
@@ -35,21 +37,21 @@ This guide explains how to build AI Secretary as an Android APK file.
 
 ### Environment Variables
 
-Set up the following environment variables:
+> **✨ NEW: SDK auto-detection** - The `ANDROID_HOME` environment variable is now **optional**. The setup script will automatically find your Android SDK during `npm install` from common locations. Setting `ANDROID_HOME` is still recommended for reliability.
 
 **Linux/Mac:**
 ```bash
 export ANDROID_HOME=$HOME/Android/Sdk
 export PATH=$PATH:$ANDROID_HOME/platform-tools
 export PATH=$PATH:$ANDROID_HOME/tools
-export JAVA_HOME=/path/to/your/jdk
+export JAVA_HOME=/path/to/your/jdk  # Optional with auto-fix
 ```
 
 **Windows:**
 ```cmd
 setx ANDROID_HOME "%LOCALAPPDATA%\Android\Sdk"
 setx PATH "%PATH%;%ANDROID_HOME%\platform-tools;%ANDROID_HOME%\tools"
-setx JAVA_HOME "C:\Program Files\Java\jdk-17"
+setx JAVA_HOME "C:\Program Files\Java\jdk-17"  # Optional with auto-fix
 ```
 
 ## Build Steps
@@ -182,11 +184,19 @@ Or simply copy the APK file to your device and open it to install.
 - **To install Java manually:** Download JDK 17 and set JAVA_HOME correctly
 
 ### "SDK location not found"
-- Install Android SDK
-- Create `android/local.properties` with:
-  ```properties
-  sdk.dir=/path/to/Android/Sdk
-  ```
+- **✨ NEW: Automatic SDK detection** - The setup script automatically creates `android/local.properties` during `npm install`
+- The script detects your Android SDK from:
+  1. `ANDROID_HOME` environment variable
+  2. `ANDROID_SDK_ROOT` environment variable
+  3. Common installation paths
+- If auto-detection fails:
+  - Install Android SDK (via Android Studio or command-line tools)
+  - Set `ANDROID_HOME` or `ANDROID_SDK_ROOT` environment variable, OR
+  - Manually create `android/local.properties` with:
+    ```properties
+    sdk.dir=/path/to/Android/Sdk
+    ```
+  - Run `npm install` again to trigger auto-setup
 
 ### "Gradle build failed"
 - Try cleaning the build:

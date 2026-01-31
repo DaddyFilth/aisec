@@ -120,7 +120,11 @@ cd aisec
 ### Prerequisites for Android Build
 
 - **Java Development Kit (JDK)** 17 or 21 (NOT Java 25)
+  - **✨ Auto-fix available:** If your system Java is incompatible, Gradle will automatically download JDK 17
 - **Android SDK** (via Android Studio or command-line tools)
+  - **✨ Auto-setup available:** The build system automatically detects and configures your Android SDK
+  - Install Android Studio or set `ANDROID_HOME` environment variable
+  - SDK location is auto-detected from common paths or environment variables
 - **Gradle** (included via wrapper)
 
 For detailed Android build instructions, including:
