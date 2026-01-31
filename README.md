@@ -119,7 +119,7 @@ cd aisec
 
 ### Prerequisites for Android Build
 
-- **Java Development Kit (JDK)** 17+
+- **Java Development Kit (JDK)** 17 or 21 (NOT Java 25)
 - **Android SDK** (via Android Studio or command-line tools)
 - **Gradle** (included via wrapper)
 
