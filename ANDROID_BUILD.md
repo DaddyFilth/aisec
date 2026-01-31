@@ -220,6 +220,8 @@ This happens because the default AAPT2 binary from Android Gradle Plugin is comp
 
 **Solution:**
 
+The build system now **automatically detects** Termux environments and uses the ARM64-compatible AAPT2 binary. You only need to:
+
 1. Install ARM64-compatible AAPT2 in Termux:
    ```bash
    pkg install aapt2
@@ -231,21 +233,19 @@ This happens because the default AAPT2 binary from Android Gradle Plugin is comp
    # Should show "ARM aarch64" in the output
    ```
 
-3. Edit `android/gradle.properties` and uncomment the AAPT2 override line:
-   ```properties
-   # Uncomment this line:
-   android.aapt2FromMavenOverride=/data/data/com.termux/files/usr/bin/aapt2
-   ```
-   
-   **Important:** Do NOT uncomment this line on standard x86/x64 development machines. This override is ONLY needed for Termux/ARM64 builds.
-
-4. Clean and rebuild:
+3. Clean and rebuild (the build system will automatically use the Termux AAPT2):
    ```bash
    cd android && ./gradlew clean
+   cd ..
    npm run android:build:debug
    ```
 
-**Note:** If AAPT2 is installed in a different location, update the path in `gradle.properties` accordingly.
+**How it works:** The build configuration in `android/build.gradle` automatically detects if you're running in Termux by checking for the `PREFIX` environment variable. When detected, it automatically configures Gradle to use `/data/data/com.termux/files/usr/bin/aapt2` instead of the bundled x86/x64 version.
+
+**Note:** If AAPT2 is installed in a different location, you can manually set the path in `android/gradle.properties` by uncommenting and modifying:
+```properties
+android.aapt2FromMavenOverride=/path/to/your/aapt2
+```
 
 ## APK Size Optimization
 

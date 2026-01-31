@@ -15,6 +15,24 @@ buildscript {
     }
 }
 
+// Auto-detect Termux environment and configure AAPT2
+// Termux uses ARM64 architecture and needs a custom AAPT2 binary
+def isTermux = System.getenv('PREFIX')?.contains('com.termux') ?: false
+def termuxAapt2 = '/data/data/com.termux/files/usr/bin/aapt2'
+
+if (isTermux) {
+    def aapt2File = new File(termuxAapt2)
+    if (aapt2File.exists()) {
+        logger.lifecycle("Termux environment detected. Using ARM64-compatible AAPT2 from: ${termuxAapt2}")
+        // Set the property to override AAPT2
+        project.ext.set('android.aapt2FromMavenOverride', termuxAapt2)
+        System.setProperty('android.aapt2FromMavenOverride', termuxAapt2)
+    } else {
+        logger.warn("Termux environment detected but AAPT2 not found at ${termuxAapt2}")
+        logger.warn("Please install AAPT2 using: pkg install aapt2")
+    }
+}
+
 apply from: "variables.gradle"
 
 allprojects {

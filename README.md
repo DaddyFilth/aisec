@@ -132,6 +132,12 @@ For detailed Android build instructions, including:
 
 👉 See the complete [Android Build Guide](ANDROID_BUILD.md)
 
+#### Building on Android (Termux)
+
+You can also build the app directly on your Android device using Termux! The build system automatically detects Termux and applies necessary ARM64 compatibility fixes.
+
+👉 See the [Termux Build Guide](TERMUX_BUILD.md) for instructions
+
 ### Available Android Scripts
 
 ```bash
