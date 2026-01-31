@@ -3,7 +3,7 @@
 
 # AI Secretary 🤖📞
 
-**An intelligent call screening assistant powered by SignalWire, AnythingLLM, and Ollama**
+**An intelligent call screening assistant powered by Swireit, AnythingLLM, and Ollama**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue.svg)](https://www.typescriptlang.org/)
@@ -17,7 +17,7 @@
 
 ## 📖 Overview
 
-AI Secretary is an intelligent call screening application that uses SignalWire Programmable Voice (Compatibility API), AnythingLLM, and Ollama to interact with callers, ask for their name and purpose, and provide you with the information you need to decide whether to:
+AI Secretary is an intelligent call screening application that uses Swireit Programmable Voice, AnythingLLM, and Ollama to interact with callers, ask for their name and purpose, and provide you with the information you need to decide whether to:
 - **Accept the call** and connect directly
 - **Send to voicemail** to record a message
 - **Forward the call** to another number
@@ -26,7 +26,7 @@ AI Secretary is an intelligent call screening application that uses SignalWire P
 ## ✨ Features
 
 ### 🎯 Core Functionality
-- **AI-Powered Call Screening**: SignalWire handles phone audio, AnythingLLM retrieves document-backed context, and Ollama generates responses
+- **AI-Powered Call Screening**: Swireit handles phone audio, AnythingLLM retrieves document-backed context, and Ollama generates responses
 - **Smart Contact Management**: Maintain a contact list with VIP designations
 - **Call Blocking**: Automatically block unwanted numbers
 - **Call History**: Review complete transcripts and recordings of all calls
@@ -99,18 +99,18 @@ OLLAMA_MODEL=llama3.1
 ANYTHINGLLM_API_URL=http://localhost:3001/api
 ANYTHINGLLM_API_KEY=your_anythingllm_api_key
 ANYTHINGLLM_WORKSPACE_SLUG=your_workspace_slug
-SIGNALWIRE_PROJECT_ID=your_signalwire_project_id
-SIGNALWIRE_API_TOKEN=your_signalwire_api_token
-SIGNALWIRE_SPACE_URL=your-space.signalwire.com
-SIGNALWIRE_CALLER_ID=+15551231234
-SIGNALWIRE_TWIML_URL=your_signalwire_laml_url
-SIGNALWIRE_VALIDATE_WEBHOOKS=true
+SWIREIT_PROJECT_ID=your_swireit_project_id
+SWIREIT_API_TOKEN=your_swireit_api_token
+SWIREIT_SPACE_URL=your-space.swireit.com
+SWIREIT_CALLER_ID=+15551231234
+SWIREIT_TWIML_URL=your_swireit_twiml_url
+SWIREIT_VALIDATE_WEBHOOKS=true
 ALLOWED_ORIGINS=*
 ```
 
 4. **Start the backend server**
    ```bash
-   node server/twilio-server.mjs
+   node server/swireit-server.mjs
    ```
 
 5. **Start the development server**
@@ -218,7 +218,7 @@ npm run android:build       # Build signed release APK
 ### Starting Call Screening
 
 1. Click **"Start AI Secretary"** to activate call screening mode
-2. Configure your SignalWire webhook to point to `POST /signalwire/voice` on the backend and set `PUBLIC_URL`
+2. Configure your Swireit webhook to point to `POST /swireit/voice` on the backend and set `PUBLIC_URL`
 3. Set `BACKEND_API_KEY` in both backend and frontend environments for authenticated API access
 4. Speak the wake word to open the console and monitor live call transcripts (default: "Secretary")
 5. The AI Secretary will greet callers and ask for their name and purpose
@@ -324,7 +324,7 @@ aisec/
 
 - **Frontend**: React 19.2 with TypeScript
 - **Build Tool**: Vite 6.2
-- **AI/ML**: SignalWire Programmable Voice + AnythingLLM + Ollama
+- **AI/ML**: Swireit Programmable Voice + AnythingLLM + Ollama
 - **Audio**: Web Audio API
 - **Styling**: Tailwind CSS (inline)
 - **Icons**: Font Awesome
@@ -390,7 +390,7 @@ For security concerns, please review our [Security Policy](SECURITY.md).
 
 ## 🙏 Acknowledgments
 
-- Powered by SignalWire, AnythingLLM, and Ollama
+- Powered by Swireit, AnythingLLM, and Ollama
 - Built with [React](https://reactjs.org/) and [Vite](https://vitejs.dev/)
 - Icons by [Font Awesome](https://fontawesome.com/)
 

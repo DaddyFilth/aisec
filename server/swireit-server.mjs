@@ -4,7 +4,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import multer from 'multer';
-import signalwire from '@signalwire/compatibility-api';
+import swireit from './swireit-client.mjs';
 import { WebSocketServer } from 'ws';
 import { callOllama } from './ollama-client.mjs';
 import { fetchChatHistory, sendChatMessage } from './anythingllm-client.mjs';
@@ -37,10 +37,10 @@ app.use((_req, res, next) => {
 });
 
 const PORT = process.env.PORT || 8080;
-const SIGNALWIRE_PROJECT_ID = process.env.SIGNALWIRE_PROJECT_ID;
-const SIGNALWIRE_API_TOKEN = process.env.SIGNALWIRE_API_TOKEN;
-const SIGNALWIRE_SPACE_URL = process.env.SIGNALWIRE_SPACE_URL;
-const SIGNALWIRE_CALLER_ID = process.env.SIGNALWIRE_CALLER_ID;
+const SWIREIT_PROJECT_ID = process.env.SWIREIT_PROJECT_ID;
+const SWIREIT_API_TOKEN = process.env.SWIREIT_API_TOKEN;
+const SWIREIT_SPACE_URL = process.env.SWIREIT_SPACE_URL;
+const SWIREIT_CALLER_ID = process.env.SWIREIT_CALLER_ID;
 const OLLAMA_API_URL = process.env.OLLAMA_API_URL;
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.1';
 const ANYTHINGLLM_API_URL = process.env.ANYTHINGLLM_API_URL;
@@ -51,8 +51,8 @@ const BACKEND_API_KEY = process.env.BACKEND_API_KEY;
 const AISEC_API_URL = process.env.AISEC_API_URL;
 const AISEC_API_KEY = process.env.AISEC_API_KEY;
 const AISEC_TIMEOUT_MS = normalizeAisecTimeout(process.env.AISEC_TIMEOUT_MS);
-const SIGNALWIRE_VALIDATE_WEBHOOKS = process.env.SIGNALWIRE_VALIDATE_WEBHOOKS !== 'false';
-const SIGNALWIRE_TWIML_URL = process.env.SIGNALWIRE_TWIML_URL;
+const SWIREIT_VALIDATE_WEBHOOKS = process.env.SWIREIT_VALIDATE_WEBHOOKS !== 'false';
+const SWIREIT_TWIML_URL = process.env.SWIREIT_TWIML_URL;
 const PHONE_REGEX = /^\+[1-9]\d{1,14}$/;
 
 const isValidApiKey = (providedKey) => {
@@ -77,33 +77,32 @@ const requireApiKey = (req, res, next) => {
   return next();
 };
 
-const validateSignalWireRequest = (req, res, next) => {
-  if (!SIGNALWIRE_VALIDATE_WEBHOOKS) return next();
-  if (!SIGNALWIRE_API_TOKEN) {
-    return res.status(500).send('SignalWire API token not configured');
+const validateSwireitRequest = (req, res, next) => {
+  if (!SWIREIT_VALIDATE_WEBHOOKS) return next();
+  if (!SWIREIT_API_TOKEN) {
+    return res.status(500).send('Swireit API token not configured');
   }
-  const signature = req.headers['x-signalwire-signature'] || req.headers['x-twilio-signature'];
+  const signature = req.headers['x-swireit-signature'];
   const url = PUBLIC_URL
     ? `${PUBLIC_URL}${req.originalUrl}`
     : `${req.protocol}://${req.headers.host}${req.originalUrl}`;
-  const isValid = signalwire.validateRequest(SIGNALWIRE_API_TOKEN, signature, url, req.body);
+  const isValid = swireit.validateRequest(SWIREIT_API_TOKEN, signature, url, req.body);
   if (!isValid) {
-    return res.status(403).send('Invalid SignalWire signature');
+    return res.status(403).send('Invalid Swireit signature');
   }
   return next();
 };
 
 const validatePhone = (value) => PHONE_REGEX.test(value || '');
 
-// Accept Twilio-style CA-prefixed SIDs and SignalWire UUID call IDs.
 const validateCallId = (value) => /^(CA[0-9a-f]{32}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.test(value || '');
 
-if (!SIGNALWIRE_PROJECT_ID || !SIGNALWIRE_API_TOKEN || !SIGNALWIRE_SPACE_URL) {
-  console.warn('SignalWire credentials are not configured. Set SIGNALWIRE_PROJECT_ID, SIGNALWIRE_API_TOKEN, and SIGNALWIRE_SPACE_URL.');
+if (!SWIREIT_PROJECT_ID || !SWIREIT_API_TOKEN || !SWIREIT_SPACE_URL) {
+  console.warn('Swireit credentials are not configured. Set SWIREIT_PROJECT_ID, SWIREIT_API_TOKEN, and SWIREIT_SPACE_URL.');
 }
 
-const signalwireClient = SIGNALWIRE_PROJECT_ID && SIGNALWIRE_API_TOKEN && SIGNALWIRE_SPACE_URL
-  ? signalwire(SIGNALWIRE_PROJECT_ID, SIGNALWIRE_API_TOKEN, { signalwireSpaceUrl: SIGNALWIRE_SPACE_URL })
+const swireitClient = SWIREIT_PROJECT_ID && SWIREIT_API_TOKEN && SWIREIT_SPACE_URL
+  ? swireit.createClient(SWIREIT_PROJECT_ID, SWIREIT_API_TOKEN, { swireitSpaceUrl: SWIREIT_SPACE_URL })
   : null;
 
 const server = createServer(app);
@@ -149,14 +148,14 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
 
-app.post('/signalwire/voice', validateSignalWireRequest, async (req, res) => {
-  const response = new signalwire.twiml.VoiceResponse();
+app.post('/swireit/voice', validateSwireitRequest, async (req, res) => {
+  const response = swireit.createVoiceResponse();
   const caller = req.body.From || 'Unknown caller';
-  const callSid = req.body.CallSid || `call-${Date.now()}`;
-  broadcast({ type: 'call.start', callId: callSid, from: caller });
+  const callId = req.body.CallId || req.body.CallID || req.body.CallSid || `call-${Date.now()}`;
+  broadcast({ type: 'call.start', callId, from: caller });
   response.gather({
     input: 'speech',
-    action: '/signalwire/voice/handle',
+    action: '/swireit/voice/handle',
     method: 'POST',
     speechTimeout: 'auto',
     language: 'en-US'
@@ -167,11 +166,11 @@ app.post('/signalwire/voice', validateSignalWireRequest, async (req, res) => {
   res.send(response.toString());
 });
 
-app.post('/signalwire/voice/handle', validateSignalWireRequest, async (req, res) => {
-  const response = new signalwire.twiml.VoiceResponse();
+app.post('/swireit/voice/handle', validateSwireitRequest, async (req, res) => {
+  const response = swireit.createVoiceResponse();
   const transcript = req.body.SpeechResult || '';
   const caller = req.body.From || 'Unknown caller';
-  const callSid = req.body.CallSid || `call-${Date.now()}`;
+  const callId = req.body.CallId || req.body.CallID || req.body.CallSid || `call-${Date.now()}`;
 
   try {
     if (!ANYTHINGLLM_API_URL || !ANYTHINGLLM_API_KEY || !ANYTHINGLLM_WORKSPACE_SLUG || !OLLAMA_API_URL) {
@@ -187,21 +186,21 @@ app.post('/signalwire/voice/handle', validateSignalWireRequest, async (req, res)
       return res.send(response.toString());
     }
 
-    broadcast({ type: 'transcript', callId: callSid, text: transcript });
+    broadcast({ type: 'transcript', callId, text: transcript });
 
     await sendChatMessage({
       baseUrl: ANYTHINGLLM_API_URL,
       apiKey: ANYTHINGLLM_API_KEY,
       workspaceSlug: ANYTHINGLLM_WORKSPACE_SLUG,
       message: `Caller ${caller}: ${transcript}`,
-      sessionId: callSid
+      sessionId: callId
     });
 
     const history = await fetchChatHistory({
       baseUrl: ANYTHINGLLM_API_URL,
       apiKey: ANYTHINGLLM_API_KEY,
       workspaceSlug: ANYTHINGLLM_WORKSPACE_SLUG,
-      sessionId: callSid
+      sessionId: callId
     });
 
     const prompt = [
@@ -217,13 +216,13 @@ app.post('/signalwire/voice/handle', validateSignalWireRequest, async (req, res)
     });
 
     const assistantReply = reply || 'Thank you. Please hold while I notify the owner.';
-    broadcast({ type: 'assistant', callId: callSid, text: assistantReply });
-    broadcast({ type: 'handoff', callId: callSid });
+    broadcast({ type: 'assistant', callId, text: assistantReply });
+    broadcast({ type: 'handoff', callId });
 
     response.say(assistantReply);
-    response.redirect('/signalwire/voice/hold');
+    response.redirect('/swireit/voice/hold');
   } catch (error) {
-    console.error('SignalWire handler error:', error);
+    console.error('Swireit handler error:', error);
     response.say('We encountered a system error. Please try again later.');
     response.hangup();
   }
@@ -232,10 +231,10 @@ app.post('/signalwire/voice/handle', validateSignalWireRequest, async (req, res)
   res.send(response.toString());
 });
 
-app.post('/signalwire/voice/hold', validateSignalWireRequest, (_req, res) => {
-  const response = new signalwire.twiml.VoiceResponse();
+app.post('/swireit/voice/hold', validateSwireitRequest, (_req, res) => {
+  const response = swireit.createVoiceResponse();
   response.pause({ length: 60 });
-  response.redirect('/signalwire/voice/hold');
+  response.redirect('/swireit/voice/hold');
   res.type('text/xml');
   res.send(response.toString());
 });
@@ -370,9 +369,9 @@ app.post('/api/anythingllm/documents', requireApiKey, upload.single('file'), asy
   }
 });
 
-app.post('/api/signalwire/outbound', requireApiKey, async (req, res) => {
-  if (!signalwireClient) {
-    return res.status(500).json({ error: 'SignalWire client not configured' });
+app.post('/api/swireit/outbound', requireApiKey, async (req, res) => {
+  if (!swireitClient) {
+    return res.status(500).json({ error: 'Swireit client not configured' });
   }
   const { to } = req.body || {};
   if (!to) {
@@ -381,76 +380,76 @@ app.post('/api/signalwire/outbound', requireApiKey, async (req, res) => {
   if (!validatePhone(to)) {
     return res.status(400).json({ error: 'Invalid destination phone number' });
   }
-  if (!SIGNALWIRE_TWIML_URL) {
-    return res.status(400).json({ error: 'SignalWire LaML URL not configured' });
+  if (!SWIREIT_TWIML_URL) {
+    return res.status(400).json({ error: 'Swireit TwiML URL not configured' });
   }
   try {
-    const call = await signalwireClient.calls.create({
+    const call = await swireitClient.calls.create({
       to,
-      from: SIGNALWIRE_CALLER_ID,
-      url: SIGNALWIRE_TWIML_URL
+      from: SWIREIT_CALLER_ID,
+      url: SWIREIT_TWIML_URL
     });
-    res.json({ sid: call.sid });
+    res.json({ callId: call.sid });
   } catch (error) {
-    console.error('SignalWire outbound error:', error);
+    console.error('Swireit outbound error:', error);
     res.status(500).json({ error: 'Failed to start outbound call' });
   }
 });
 
-app.post('/api/signalwire/answer', requireApiKey, async (req, res) => {
-  if (!signalwireClient) {
-    return res.status(500).json({ error: 'SignalWire client not configured' });
+app.post('/api/swireit/answer', requireApiKey, async (req, res) => {
+  if (!swireitClient) {
+    return res.status(500).json({ error: 'Swireit client not configured' });
   }
   const { callId, to } = req.body || {};
   if (!validateCallId(callId) || !validatePhone(to)) {
     return res.status(400).json({ error: 'callId and valid E.164 phone are required' });
   }
   try {
-    const response = new signalwire.twiml.VoiceResponse();
+    const response = swireit.createVoiceResponse();
     response.dial(to);
-    await signalwireClient.calls(callId).update({ twiml: response.toString() });
+    await swireitClient.calls(callId).update({ response: response.toString() });
     res.json({ status: 'connected' });
   } catch (error) {
-    console.error('SignalWire answer error:', error);
+    console.error('Swireit answer error:', error);
     res.status(500).json({ error: 'Failed to connect call' });
   }
 });
 
-app.post('/api/signalwire/voicemail', requireApiKey, async (req, res) => {
-  if (!signalwireClient) {
-    return res.status(500).json({ error: 'SignalWire client not configured' });
+app.post('/api/swireit/voicemail', requireApiKey, async (req, res) => {
+  if (!swireitClient) {
+    return res.status(500).json({ error: 'Swireit client not configured' });
   }
   const { callId } = req.body || {};
   if (!validateCallId(callId)) {
     return res.status(400).json({ error: 'callId is required' });
   }
   try {
-    const response = new signalwire.twiml.VoiceResponse();
+    const response = swireit.createVoiceResponse();
     response.say('Please leave a message after the tone.');
     response.record({ maxLength: 30 });
-    await signalwireClient.calls(callId).update({ twiml: response.toString() });
+    await swireitClient.calls(callId).update({ response: response.toString() });
     res.json({ status: 'voicemail' });
   } catch (error) {
-    console.error('SignalWire voicemail error:', error);
+    console.error('Swireit voicemail error:', error);
     res.status(500).json({ error: 'Failed to send to voicemail' });
   }
 });
 
-app.post('/api/signalwire/forward', requireApiKey, async (req, res) => {
-  if (!signalwireClient) {
-    return res.status(500).json({ error: 'SignalWire client not configured' });
+app.post('/api/swireit/forward', requireApiKey, async (req, res) => {
+  if (!swireitClient) {
+    return res.status(500).json({ error: 'Swireit client not configured' });
   }
   const { callId, to } = req.body || {};
   if (!validateCallId(callId) || !validatePhone(to)) {
     return res.status(400).json({ error: 'callId and valid E.164 phone are required' });
   }
   try {
-    const response = new signalwire.twiml.VoiceResponse();
+    const response = swireit.createVoiceResponse();
     response.dial(to);
-    await signalwireClient.calls(callId).update({ twiml: response.toString() });
+    await swireitClient.calls(callId).update({ response: response.toString() });
     res.json({ status: 'forwarded' });
   } catch (error) {
-    console.error('SignalWire forward error:', error);
+    console.error('Swireit forward error:', error);
     res.status(500).json({ error: 'Failed to forward call' });
   }
 });
