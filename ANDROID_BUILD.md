@@ -220,20 +220,27 @@ This happens because the default AAPT2 binary from Android Gradle Plugin is comp
 
 **Solution:**
 
-The AAPT2 override is now **enabled by default** in `android/gradle.properties`. You only need to:
+The AAPT2 override is now **commented out by default** in `android/gradle.properties` to prevent this issue on desktop/CI builds. 
+
+For Termux builds only:
 
 1. Install ARM64-compatible AAPT2 in Termux:
    ```bash
    pkg install aapt2
    ```
 
-2. Verify the installation:
+2. Uncomment the AAPT2 override in `android/gradle.properties`:
+   ```properties
+   android.aapt2FromMavenOverride=/data/data/com.termux/files/usr/bin/aapt2
+   ```
+
+3. Verify the installation:
    ```bash
    file /data/data/com.termux/files/usr/bin/aapt2
    # Should show "ARM aarch64" in the output
    ```
 
-3. Clean and rebuild:
+4. Clean and rebuild:
    ```bash
    cd android && ./gradlew clean
    cd ..
@@ -241,12 +248,13 @@ The AAPT2 override is now **enabled by default** in `android/gradle.properties`.
    ```
 
 **How it works:** 
-- The `android/gradle.properties` file now has `android.aapt2FromMavenOverride` uncommented by default
-- This ensures Gradle uses `/data/data/com.termux/files/usr/bin/aapt2` instead of the bundled x86/x64 version
-- The build configuration also provides helpful error messages if AAPT2 is not installed
-- When building on desktop systems, the override path won't exist and Gradle will fall back to the bundled AAPT2
+- The `android/gradle.properties` file has `android.aapt2FromMavenOverride` commented out by default
+- On desktop/CI systems, this ensures Gradle uses the bundled AAPT2 which works correctly
+- In Termux, you need to uncomment this line after installing AAPT2 via `pkg install aapt2`
+- This approach prevents build failures in non-Termux environments while still supporting Termux builds
+- The build configuration also provides helpful error messages if AAPT2 is not installed in Termux
 
-**Note:** If you're building on a desktop and want to ensure the bundled AAPT2 is used, you can comment out the override line in `android/gradle.properties`:
+**Note:** If you're building on a desktop/CI and encounter AAPT2 errors, ensure the override line in `android/gradle.properties` is commented out:
 ```properties
 #android.aapt2FromMavenOverride=/data/data/com.termux/files/usr/bin/aapt2
 ```

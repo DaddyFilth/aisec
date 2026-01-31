@@ -23,13 +23,17 @@ The build configuration in `android/build.gradle` checks for the `PREFIX` enviro
 
 ### What You Need to Do
 
-Simply install the ARM64-compatible AAPT2:
+1. Install the ARM64-compatible AAPT2:
+   ```bash
+   pkg install aapt2
+   ```
 
-```bash
-pkg install aapt2
-```
+2. Enable the AAPT2 override in `android/gradle.properties` by uncommenting this line:
+   ```properties
+   android.aapt2FromMavenOverride=/data/data/com.termux/files/usr/bin/aapt2
+   ```
 
-That's it! The build system handles everything else automatically.
+The build system will then automatically use the ARM64-compatible AAPT2 for all builds.
 
 ## Building the App
 
@@ -91,7 +95,7 @@ This error occurs when AAPT2 is not installed or not compatible.
 
 3. **The AAPT2 override is now enabled by default** in `android/gradle.properties` to prevent this error. If you still encounter issues, verify that the file exists and is executable.
 
-**Note:** The gradle.properties file now has the AAPT2 override uncommented by default. This ensures builds work in Termux without manual configuration. The build system will use the Termux AAPT2 if it exists, or fall back to the default behavior otherwise.
+**Note:** The AAPT2 override in gradle.properties is commented out by default to prevent issues on desktop/CI environments. When building in Termux, you need to uncomment the override line after installing AAPT2. This ensures builds work correctly in both Termux and desktop environments.
 
 ### Build is very slow
 
@@ -120,17 +124,19 @@ If you get out of memory errors during build:
 
 ### Manual AAPT2 Override
 
-The AAPT2 override is **already enabled** in `android/gradle.properties` to fix AAPT2 daemon startup failures.
+The AAPT2 override is **commented out by default** in `android/gradle.properties` to prevent issues on desktop/CI builds.
 
-If you need to change the AAPT2 location:
+To enable it for Termux builds:
 
 1. Edit `android/gradle.properties`
-2. Modify the line:
+2. Uncomment the line:
    ```properties
-   android.aapt2FromMavenOverride=/path/to/your/aapt2
+   android.aapt2FromMavenOverride=/data/data/com.termux/files/usr/bin/aapt2
    ```
 
-To disable the override (e.g., when building on a desktop), comment out the line:
+If you need to use a different AAPT2 location, modify the path accordingly.
+
+To disable the override (default for desktop/CI builds), ensure the line is commented:
 ```properties
 #android.aapt2FromMavenOverride=/data/data/com.termux/files/usr/bin/aapt2
 ```
