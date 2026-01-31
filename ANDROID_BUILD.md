@@ -182,6 +182,16 @@ Or simply copy the APK file to your device and open it to install.
   cd android && ./gradlew clean
   ```
 
+### "Unsupported class file major version 69"
+- This error occurs when Java version compatibility is misconfigured
+- The project is configured to use Java 17
+- Verify you have JDK 17 installed (not Java 21):
+  ```bash
+  java -version  # Should show version 17
+  ```
+- If you have multiple Java versions, make sure JAVA_HOME points to JDK 17
+- The fix is already applied in `android/app/build.gradle` to override Capacitor's default Java 21 settings
+
 ### Microphone permission not working
 - Permissions are declared in `AndroidManifest.xml` (already configured)
 - **The app requests permissions at runtime** when you click "Enable Call Screening"
