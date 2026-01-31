@@ -38,9 +38,9 @@ The AAPT2 override is now **enabled by default** in `android/gradle.properties` 
 Uncommented the AAPT2 override to enable it by default:
 
 ```properties
-# Manual override: Enabled to fix AAPT2 daemon startup failures in Termux
-# The automatic detection in build.gradle may not work reliably in all cases
-# This override ensures the ARM64-compatible AAPT2 is used when available
+# Manual override: Enabled by default to fix AAPT2 daemon startup failures in Termux
+# This is SAFE for desktop builds - if the path doesn't exist, Gradle automatically falls back to the bundled AAPT2
+# The override ensures the ARM64-compatible AAPT2 is used when available (Termux), otherwise uses bundled version (desktop)
 android.aapt2FromMavenOverride=/data/data/com.termux/files/usr/bin/aapt2
 ```
 
@@ -63,7 +63,7 @@ if (aapt2Override) {
         logger.error("Please install AAPT2 using: pkg install aapt2")
     } else {
         // On desktop, silently fall back to bundled AAPT2
-        logger.info("AAPT2 override configured but not found, using bundled AAPT2")
+        logger.info("AAPT2 override configured but not found at ${aapt2Override}, using bundled AAPT2")
     }
 } else if (isTermux) {
     // Fallback: auto-detect Termux and warn if AAPT2 not installed
