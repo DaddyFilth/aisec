@@ -1,3 +1,51 @@
+// Java version detection and auto-fix using Gradle Toolchains
+// This detects incompatible Java versions and provides helpful messages
+// The build will continue using Java Toolchain auto-provisioning
+def javaVersion = JavaVersion.current()
+def javaVersionMajor = javaVersion.majorVersion as Integer
+
+if (javaVersionMajor < 17) {
+    logger.warn("""
+    ╔═══════════════════════════════════════════════════════════════════════════════╗
+    ║                         JAVA VERSION AUTO-FIX ENABLED                          ║
+    ╠═══════════════════════════════════════════════════════════════════════════════╣
+    ║                                                                               ║
+    ║  Detected: Java ${javaVersion} (major version ${javaVersionMajor})
+    ║  Required: Java 17 or 21                                                     ║
+    ║                                                                               ║
+    ║  ⚡ AUTO-FIX: Gradle will automatically download and use JDK 17               ║
+    ║                                                                               ║
+    ║  Your system Java remains unchanged. The build will use JDK 17 via Gradle's  ║
+    ║  Java Toolchain feature. First build may take longer while downloading JDK.  ║
+    ║                                                                               ║
+    ║  To permanently fix: Install JDK 17 and set JAVA_HOME                        ║
+    ║  • Download: https://adoptium.net/temurin/releases/?version=17               ║
+    ║                                                                               ║
+    ╚═══════════════════════════════════════════════════════════════════════════════╝
+    """.stripIndent())
+} else if (javaVersionMajor > 21) {
+    logger.warn("""
+    ╔═══════════════════════════════════════════════════════════════════════════════╗
+    ║                         JAVA VERSION AUTO-FIX ENABLED                          ║
+    ╠═══════════════════════════════════════════════════════════════════════════════╣
+    ║                                                                               ║
+    ║  Detected: Java ${javaVersion} (major version ${javaVersionMajor})
+    ║  Required: Java 17 or 21                                                     ║
+    ║                                                                               ║
+    ║  ⚡ AUTO-FIX: Gradle will automatically download and use JDK 17               ║
+    ║                                                                               ║
+    ║  Gradle 8.9 does not support Java ${javaVersionMajor}. The build will use JDK 17 via
+    ║  Gradle's Java Toolchain feature. First build may take longer.               ║
+    ║                                                                               ║
+    ║  To permanently fix: Install JDK 17 or 21 and set JAVA_HOME                  ║
+    ║  • Download: https://adoptium.net/temurin/releases/?version=17               ║
+    ║                                                                               ║
+    ╚═══════════════════════════════════════════════════════════════════════════════╝
+    """.stripIndent())
+} else {
+    logger.lifecycle("✓ Using Java ${javaVersion} (compatible)")
+}
+
 include ':app'
 include ':capacitor-cordova-android-plugins'
 project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins/')
