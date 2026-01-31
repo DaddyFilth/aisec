@@ -190,13 +190,13 @@ Or simply copy the APK file to your device and open it to install.
   ```
 
 ### "Unsupported class file major version 69"
-- This error occurs when Gradle is running on Java 16 or older
-- Class file major version 69 corresponds to Java 21
-- Android Gradle Plugin 8.7.2 is compiled with Java 21 and requires Gradle to run on Java 17+
-- **Solution:** Upgrade to Java 17 or Java 21
+- This error occurs when using Java 25, which is NOT supported by Gradle 8.9
+- Class file major version 69 corresponds to Java 25
+- Android Gradle Plugin 8.7.2 and Gradle 8.9 require Java 17 or 21
+- **Solution:** Downgrade to Java 17 or Java 21
 - Check your Java version:
   ```bash
-  java -version  # Should show version 17.x.x or 21.x.x (NOT 11.x.x or older)
+  java -version  # Should show version 17.x.x or 21.x.x (NOT 25.x.x)
   ```
 - If you have the correct Java version installed but still see this error:
   - Make sure JAVA_HOME points to the correct JDK
