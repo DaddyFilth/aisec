@@ -1,4 +1,5 @@
 import { createServer } from 'http';
+import crypto from 'crypto';
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -11,12 +12,23 @@ import { fetchChatHistory, sendChatMessage } from './anythingllm-client.mjs';
 dotenv.config();
 
 const app = express();
+app.set('trust proxy', true);
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }
 });
 
-app.use(cors({ origin: process.env.ALLOWED_ORIGINS?.split(',') ?? '*' }));
+const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? 'http://localhost:3000,http://localhost:3001')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean);
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'));
+  }
+}));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use((_req, res, next) => {
@@ -34,6 +46,52 @@ const ANYTHINGLLM_API_URL = process.env.ANYTHINGLLM_API_URL;
 const ANYTHINGLLM_API_KEY = process.env.ANYTHINGLLM_API_KEY;
 const ANYTHINGLLM_WORKSPACE_SLUG = process.env.ANYTHINGLLM_WORKSPACE_SLUG;
 const PUBLIC_URL = process.env.PUBLIC_URL;
+const BACKEND_API_KEY = process.env.BACKEND_API_KEY;
+const TWILIO_VALIDATE_WEBHOOKS = process.env.TWILIO_VALIDATE_WEBHOOKS !== 'false';
+const TWILIO_TWIML_URL = process.env.TWILIO_TWIML_URL;
+const PHONE_REGEX = /^\+?[1-9]\d{1,14}$/;
+
+const isValidApiKey = (providedKey) => {
+  if (!BACKEND_API_KEY || !providedKey) return false;
+  const expected = Buffer.from(BACKEND_API_KEY);
+  const actual = Buffer.from(providedKey);
+  if (expected.length !== actual.length) return false;
+  return crypto.timingSafeEqual(expected, actual);
+};
+
+const requireApiKey = (req, res, next) => {
+  const bearer = req.headers.authorization?.startsWith('Bearer ')
+    ? req.headers.authorization.slice(7)
+    : undefined;
+  const apiKey = req.headers['x-api-key'] || bearer;
+  if (!BACKEND_API_KEY) {
+    return res.status(500).json({ error: 'BACKEND_API_KEY is not configured' });
+  }
+  if (!isValidApiKey(apiKey)) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  return next();
+};
+
+const validateTwilioRequest = (req, res, next) => {
+  if (!TWILIO_VALIDATE_WEBHOOKS) return next();
+  if (!TWILIO_AUTH_TOKEN) {
+    return res.status(500).send('Twilio auth token not configured');
+  }
+  const signature = req.headers['x-twilio-signature'];
+  const url = PUBLIC_URL
+    ? `${PUBLIC_URL}${req.originalUrl}`
+    : `${req.protocol}://${req.headers.host}${req.originalUrl}`;
+  const isValid = twilio.validateRequest(TWILIO_AUTH_TOKEN, signature, url, req.body);
+  if (!isValid) {
+    return res.status(403).send('Invalid Twilio signature');
+  }
+  return next();
+};
+
+const validatePhone = (value) => PHONE_REGEX.test(value || '');
+
+const validateCallId = (value) => typeof value === 'string' && value.length > 0;
 
 if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
   console.warn('Twilio credentials are not configured. Set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN.');
@@ -58,7 +116,13 @@ const broadcast = (payload) => {
   });
 };
 
-wss.on('connection', (socket) => {
+wss.on('connection', (socket, request) => {
+  const url = new URL(request.url ?? '', `http://${request.headers.host}`);
+  const apiKey = url.searchParams.get('apiKey') || request.headers['x-api-key'];
+  if (!isValidApiKey(apiKey)) {
+    socket.close(1008, 'Unauthorized');
+    return;
+  }
   socket.subscription = '*';
   wsClients.add(socket);
   socket.on('message', (message) => {
@@ -80,7 +144,7 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
 
-app.post('/twilio/voice', async (req, res) => {
+app.post('/twilio/voice', validateTwilioRequest, async (req, res) => {
   const response = new twilio.twiml.VoiceResponse();
   const caller = req.body.From || 'Unknown caller';
   const callSid = req.body.CallSid || `call-${Date.now()}`;
@@ -98,7 +162,7 @@ app.post('/twilio/voice', async (req, res) => {
   res.send(response.toString());
 });
 
-app.post('/twilio/voice/handle', async (req, res) => {
+app.post('/twilio/voice/handle', validateTwilioRequest, async (req, res) => {
   const response = new twilio.twiml.VoiceResponse();
   const transcript = req.body.SpeechResult || '';
   const caller = req.body.From || 'Unknown caller';
@@ -163,7 +227,7 @@ app.post('/twilio/voice/handle', async (req, res) => {
   res.send(response.toString());
 });
 
-app.post('/twilio/voice/hold', (_req, res) => {
+app.post('/twilio/voice/hold', validateTwilioRequest, (_req, res) => {
   const response = new twilio.twiml.VoiceResponse();
   response.pause({ length: 60 });
   response.redirect('/twilio/voice/hold');
@@ -171,7 +235,7 @@ app.post('/twilio/voice/hold', (_req, res) => {
   res.send(response.toString());
 });
 
-app.post('/api/orchestrator-webhook', async (req, res) => {
+app.post('/api/orchestrator-webhook', requireApiKey, async (req, res) => {
   try {
     const { transcript, sessionId } = req.body || {};
     if (!transcript) {
@@ -204,7 +268,7 @@ app.post('/api/orchestrator-webhook', async (req, res) => {
   }
 });
 
-app.post('/api/anythingllm/documents', upload.single('file'), async (req, res) => {
+app.post('/api/anythingllm/documents', requireApiKey, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'file is required' });
@@ -247,19 +311,22 @@ app.post('/api/anythingllm/documents', upload.single('file'), async (req, res) =
   }
 });
 
-app.post('/api/twilio/outbound', async (req, res) => {
+app.post('/api/twilio/outbound', requireApiKey, async (req, res) => {
   if (!twilioClient) {
     return res.status(500).json({ error: 'Twilio client not configured' });
   }
-  const { to, url } = req.body || {};
-  if (!to || !url) {
-    return res.status(400).json({ error: 'to and url are required' });
+  const { to } = req.body || {};
+  if (!to) {
+    return res.status(400).json({ error: 'to is required' });
+  }
+  if (!validatePhone(to) || !TWILIO_TWIML_URL) {
+    return res.status(400).json({ error: 'Invalid destination or TwiML URL not configured' });
   }
   try {
     const call = await twilioClient.calls.create({
       to,
       from: TWILIO_CALLER_ID,
-      url
+      url: TWILIO_TWIML_URL
     });
     res.json({ sid: call.sid });
   } catch (error) {
@@ -268,21 +335,18 @@ app.post('/api/twilio/outbound', async (req, res) => {
   }
 });
 
-app.post('/api/twilio/answer', async (req, res) => {
+app.post('/api/twilio/answer', requireApiKey, async (req, res) => {
   if (!twilioClient) {
     return res.status(500).json({ error: 'Twilio client not configured' });
   }
   const { callId, to } = req.body || {};
-  if (!callId || !to) {
-    return res.status(400).json({ error: 'callId and to are required' });
-  }
-  if (!PUBLIC_URL) {
-    return res.status(500).json({ error: 'PUBLIC_URL is not configured' });
+  if (!validateCallId(callId) || !validatePhone(to)) {
+    return res.status(400).json({ error: 'callId and valid E.164 phone are required' });
   }
   try {
-    await twilioClient.calls(callId).update({
-      twiml: `<Response><Dial>${to}</Dial></Response>`
-    });
+    const response = new twilio.twiml.VoiceResponse();
+    response.dial(to);
+    await twilioClient.calls(callId).update({ twiml: response.toString() });
     res.json({ status: 'connected' });
   } catch (error) {
     console.error('Twilio answer error:', error);
@@ -290,18 +354,19 @@ app.post('/api/twilio/answer', async (req, res) => {
   }
 });
 
-app.post('/api/twilio/voicemail', async (req, res) => {
+app.post('/api/twilio/voicemail', requireApiKey, async (req, res) => {
   if (!twilioClient) {
     return res.status(500).json({ error: 'Twilio client not configured' });
   }
   const { callId } = req.body || {};
-  if (!callId) {
+  if (!validateCallId(callId)) {
     return res.status(400).json({ error: 'callId is required' });
   }
   try {
-    await twilioClient.calls(callId).update({
-      twiml: '<Response><Say>Please leave a message after the tone.</Say><Record maxLength="30" /></Response>'
-    });
+    const response = new twilio.twiml.VoiceResponse();
+    response.say('Please leave a message after the tone.');
+    response.record({ maxLength: 30 });
+    await twilioClient.calls(callId).update({ twiml: response.toString() });
     res.json({ status: 'voicemail' });
   } catch (error) {
     console.error('Twilio voicemail error:', error);
@@ -309,18 +374,18 @@ app.post('/api/twilio/voicemail', async (req, res) => {
   }
 });
 
-app.post('/api/twilio/forward', async (req, res) => {
+app.post('/api/twilio/forward', requireApiKey, async (req, res) => {
   if (!twilioClient) {
     return res.status(500).json({ error: 'Twilio client not configured' });
   }
   const { callId, to } = req.body || {};
-  if (!callId || !to) {
-    return res.status(400).json({ error: 'callId and to are required' });
+  if (!validateCallId(callId) || !validatePhone(to)) {
+    return res.status(400).json({ error: 'callId and valid E.164 phone are required' });
   }
   try {
-    await twilioClient.calls(callId).update({
-      twiml: `<Response><Dial>${to}</Dial></Response>`
-    });
+    const response = new twilio.twiml.VoiceResponse();
+    response.dial(to);
+    await twilioClient.calls(callId).update({ twiml: response.toString() });
     res.json({ status: 'forwarded' });
   } catch (error) {
     console.error('Twilio forward error:', error);

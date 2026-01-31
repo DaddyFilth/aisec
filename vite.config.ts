@@ -12,7 +12,8 @@ export default defineConfig(({ mode }) => {
       plugins: [react()],
       define: {
         'process.env.BACKEND_API_URL': JSON.stringify(env.BACKEND_API_URL),
-        'process.env.BACKEND_WS_URL': JSON.stringify(env.BACKEND_WS_URL)
+        'process.env.BACKEND_WS_URL': JSON.stringify(env.BACKEND_WS_URL),
+        'process.env.BACKEND_API_KEY': JSON.stringify(env.BACKEND_API_KEY)
       },
       resolve: {
         alias: {

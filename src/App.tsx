@@ -279,7 +279,8 @@ const App: React.FC = () => {
     }
 
     try {
-      const wsUrl = backendWsUrl ? `${backendWsUrl}/ws/call?client=ui` : '';
+      const apiKey = process.env.BACKEND_API_KEY;
+      const wsUrl = backendWsUrl ? `${backendWsUrl}/ws/call?client=ui${apiKey ? `&apiKey=${encodeURIComponent(apiKey)}` : ''}` : '';
       if (!wsUrl) {
         throw new Error('BACKEND_WS_URL is not configured.');
       }
@@ -314,8 +315,9 @@ const App: React.FC = () => {
             });
           }
           if (payload.type === 'transcript') {
-            if (!activeCallId) setActiveCallId(payload.callId);
-            if (!payload.callId || payload.callId === activeCallId) {
+            const currentCallId = activeCallId || payload.callId;
+            if (!activeCallId && payload.callId) setActiveCallId(payload.callId);
+            if (!payload.callId || payload.callId === currentCallId) {
               addConsoleLine('CALLER', payload.text);
             }
           }
@@ -361,7 +363,10 @@ const App: React.FC = () => {
     try {
       await fetch(`${backendApiUrl}/api/twilio/answer`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': process.env.BACKEND_API_KEY ?? ''
+        },
         body: JSON.stringify({ callId: activeCallId, to: dest })
       });
       setStatus(CallStatus.CONNECTED);
@@ -380,7 +385,10 @@ const App: React.FC = () => {
     try {
       await fetch(`${backendApiUrl}/api/twilio/voicemail`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': process.env.BACKEND_API_KEY ?? ''
+        },
         body: JSON.stringify({ callId: activeCallId })
       });
       setStatus(CallStatus.VOICEMAIL);
@@ -399,7 +407,10 @@ const App: React.FC = () => {
     }
     fetch(`${backendApiUrl}/api/twilio/forward`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': process.env.BACKEND_API_KEY ?? ''
+      },
       body: JSON.stringify({ callId: activeCallId, to: dest })
     })
       .then(() => {

@@ -213,6 +213,7 @@ npm run android:build       # Build signed release APK
 
 1. Click **"Start AI Secretary"** to activate call screening mode
 2. Configure your Twilio webhook to point to `POST /twilio/voice` on the backend and set `PUBLIC_URL`
+3. Set `BACKEND_API_KEY` in both backend and frontend environments for authenticated API access
 3. Speak the wake word to open the console and monitor live call transcripts (default: "Secretary")
 3. The AI Secretary will greet callers and ask for their name and purpose
 4. Watch the real-time transcription in the console as the conversation unfolds
