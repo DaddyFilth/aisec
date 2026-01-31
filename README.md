@@ -46,7 +46,8 @@ AI Secretary is an intelligent call screening application that uses Google's Gem
 - **Audio Processing**: Configurable noise suppression, echo cancellation, and auto-gain control
 - **Language Support**: Multiple language focus options (English US/UK, Spanish, French, German, Japanese, Korean)
 - **Local Storage**: Persistent data storage for contacts, logs, and settings
-- **Responsive Design**: Works on desktop and mobile devices
+- **Cross-Platform**: Works on desktop browsers and Android devices (via APK)
+- **Responsive Design**: Optimized for desktop and mobile screens
 
 ## 🎬 Demo
 
@@ -92,6 +93,49 @@ View your app in AI Studio: https://ai.studio/apps/drive/129UWr-WSACDH_B1WBLuIyo
 5. **Open in browser**
    
    Navigate to `http://localhost:5173` (or the port shown in your terminal)
+
+## 📱 Android APK Deployment
+
+AI Secretary can be built and deployed as an Android APK for mobile devices!
+
+### Quick Start
+
+1. **Build debug APK for testing:**
+   ```bash
+   npm run android:build:debug
+   ```
+   APK location: `android/app/build/outputs/apk/debug/app-debug.apk`
+
+2. **Build release APK for distribution:**
+   ```bash
+   npm run android:build
+   ```
+   APK location: `android/app/build/outputs/apk/release/app-release.apk`
+
+### Prerequisites for Android Build
+
+- **Java Development Kit (JDK)** 17+
+- **Android SDK** (via Android Studio or command-line tools)
+- **Gradle** (included via wrapper)
+
+For detailed Android build instructions, including:
+- Environment setup
+- Signing configuration
+- Testing on devices/emulators
+- Troubleshooting
+- Distribution options
+
+👉 See the complete [Android Build Guide](ANDROID_BUILD.md)
+
+### Available Android Scripts
+
+```bash
+npm run android:sync        # Sync web build to Android
+npm run android:open        # Open in Android Studio
+npm run android:run         # Build and run on device
+npm run android:build:debug # Build debug APK
+npm run android:build       # Build release APK
+```
 
 ## 📖 Usage
 
