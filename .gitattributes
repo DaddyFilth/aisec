@@ -1,4 +1,3 @@
 # Ensure patch files always use LF line endings
 # This prevents patch-package errors on different platforms
 patches/** text eol=lf
-*.patch text eol=lf
