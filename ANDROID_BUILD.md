@@ -208,6 +208,42 @@ Or simply copy the APK file to your device and open it to install.
   adb logcat | grep -i "aisec"
   ```
 
+### AAPT2 errors in Termux (ARM64)
+If you're building in Termux and see errors like:
+```
+AAPT2 aapt2-8.7.2-12006047-linux Daemon #X: Unexpected error output
+Syntax error: "(" unexpected
+AAPT2 Daemon startup failed
+```
+
+This happens because the default AAPT2 binary from Android Gradle Plugin is compiled for x86/x64 architecture and cannot run on ARM64 devices.
+
+**Solution:**
+
+1. Install ARM64-compatible AAPT2 in Termux:
+   ```bash
+   pkg install aapt2
+   ```
+
+2. Verify the installation:
+   ```bash
+   file /data/data/com.termux/files/usr/bin/aapt2
+   # Should show "ARM aarch64" in the output
+   ```
+
+3. The fix is already applied in `android/gradle.properties`:
+   ```properties
+   android.aapt2FromMavenOverride=/data/data/com.termux/files/usr/bin/aapt2
+   ```
+
+4. Clean and rebuild:
+   ```bash
+   cd android && ./gradlew clean
+   npm run android:build:debug
+   ```
+
+**Note:** If AAPT2 is installed in a different location, update the path in `gradle.properties` accordingly.
+
 ## APK Size Optimization
 
 To reduce APK size:
