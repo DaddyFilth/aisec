@@ -1,5 +1,46 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
+// Verify Java version compatibility
+def javaVersion = JavaVersion.current()
+def javaVersionMajor = javaVersion.majorVersion as Integer
+
+if (javaVersionMajor > 21) {
+    def errorMsg = """
+    ╔═══════════════════════════════════════════════════════════════════════════════╗
+    ║                           BUILD CONFIGURATION ERROR                            ║
+    ╠═══════════════════════════════════════════════════════════════════════════════╣
+    ║                                                                               ║
+    ║  Your Java version is NOT supported by this project!                         ║
+    ║                                                                               ║
+    ║  Detected Java Version: ${javaVersion} (major version ${javaVersionMajor})                               ║
+    ║  Required Java Version: 17 or 21                                             ║
+    ║                                                                               ║
+    ║  Android Gradle Plugin 8.7.2 and Gradle 8.9 do not support Java ${javaVersionMajor}.           ║
+    ║  Java ${javaVersionMajor} support requires Gradle 9.1+ and AGP 9.0+.                          ║
+    ║                                                                               ║
+    ║  SOLUTION:                                                                    ║
+    ║  1. Install JDK 17 or JDK 21                                                 ║
+    ║     • Download JDK 17: https://adoptium.net/temurin/releases/?version=17     ║
+    ║     • Or download JDK 21: https://adoptium.net/temurin/releases/?version=21  ║
+    ║                                                                               ║
+    ║  2. Set JAVA_HOME environment variable to point to JDK 17 or 21              ║
+    ║     • Linux/Mac: export JAVA_HOME=/path/to/jdk-17                            ║
+    ║     • Windows: setx JAVA_HOME "C:\\Program Files\\Java\\jdk-17"               ║
+    ║                                                                               ║
+    ║  3. Verify the change: java -version                                         ║
+    ║                                                                               ║
+    ║  For more details, see ANDROID_BUILD.md                                      ║
+    ║                                                                               ║
+    ╚═══════════════════════════════════════════════════════════════════════════════╝
+    """.stripIndent()
+    
+    throw new GradleException(errorMsg)
+} else if (javaVersionMajor == 17 || javaVersionMajor == 21) {
+    logger.lifecycle("✓ Using Java ${javaVersion} (compatible)")
+} else if (javaVersionMajor < 17) {
+    logger.warn("⚠ Using Java ${javaVersion} - Please upgrade to Java 17 or 21 for best compatibility")
+}
+
 buildscript {
     
     repositories {
