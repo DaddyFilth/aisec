@@ -11,7 +11,8 @@ const App: React.FC = () => {
   const importMetaEnv = import.meta.env as Record<string, string | undefined>;
   const backendApiStorageKey = 'ai_sec_backend_api_url';
   const exampleBackendApiUrl = 'https://local.host:8080';
-  const backendApiEnvUrl = process.env.BACKEND_API_URL || importMetaEnv.VITE_BACKEND_API_URL || '';
+  const backendApiEnvUrl = process.env.BACKEND_API_URL ?? importMetaEnv.VITE_BACKEND_API_URL ?? '';
+  const monitoringNumber = '+1 (405) 983-2333';
   const backendWsEnvUrl = process.env.BACKEND_WS_URL || importMetaEnv.VITE_BACKEND_WS_URL;
   const backendApiKeyEnv = process.env.BACKEND_API_KEY || importMetaEnv.VITE_BACKEND_API_KEY;
   const [backendStatus, setBackendStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
@@ -57,15 +58,24 @@ const App: React.FC = () => {
   const wakeRecognitionRef = useRef<any>(null);
   const consoleEndRef = useRef<HTMLDivElement>(null);
   const parseBackendApiUrl = useCallback((value: string) => {
-    if (!value) return { valid: true, wsUrl: '' };
+    if (!value) {
+      return { valid: true, wsUrl: '' };
+    }
+
     try {
       const parsedUrl = new URL(value);
-      const isHttp = parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
-      const hasHostname = Boolean(parsedUrl.hostname);
-      return {
-        valid: isHttp && hasHostname,
-        wsUrl: parsedUrl.href.replace(/^http/, 'ws')
-      };
+      const isHttp =
+        parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
+
+      if (!isHttp || !parsedUrl.hostname) {
+        return { valid: false, wsUrl: '' };
+      }
+
+      const wsUrl = parsedUrl.protocol === 'https:'
+        ? `wss://${parsedUrl.host}`
+        : `ws://${parsedUrl.host}`;
+
+      return { valid: true, wsUrl };
     } catch {
       return { valid: false, wsUrl: '' };
     }
