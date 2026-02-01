@@ -129,10 +129,7 @@ const App: React.FC = () => {
     if (updateCheckRef.current) return;
     updateCheckRef.current = true;
     const updateUrl = process.env.AISEC_UPDATE_URL;
-    if (!updateUrl) {
-      updateCheckRef.current = false;
-      return;
-    }
+    if (!updateUrl) return;
     const checkForUpdates = async () => {
       try {
         const response = await fetch(updateUrl);
@@ -189,16 +186,18 @@ const App: React.FC = () => {
     return { summary, signature };
   }, [transcription]);
 
+  const { summary: memorySummaryValue, signature: memorySignatureValue } = memorySnapshot;
+
   useEffect(() => {
-    if (!memoryEnabledRef.current || !memorySnapshot.summary) return;
-    if (memorySnapshot.signature === memorySignatureRef.current) return;
-    memorySignatureRef.current = memorySnapshot.signature;
+    if (!memoryEnabledRef.current || !memorySummaryValue) return;
+    if (memorySignatureValue === memorySignatureRef.current) return;
+    memorySignatureRef.current = memorySignatureValue;
     setConfig(prev => (
-      prev.memorySummary === memorySnapshot.summary
+      prev.memorySummary === memorySummaryValue
         ? prev
-        : { ...prev, memorySummary: memorySnapshot.summary }
+        : { ...prev, memorySummary: memorySummaryValue }
     ));
-  }, [memorySnapshot.signature]);
+  }, [memorySignatureValue, memorySummaryValue]);
 
   // Scroll console to bottom
   useEffect(() => {
