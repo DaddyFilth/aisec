@@ -41,6 +41,8 @@ const App: React.FC = () => {
   const hasAutoConfiguredRef = useRef(false);
   const updateCheckRef = useRef(false);
   const contactIdRef = useRef(0);
+  const previousBackendApiUrlRef = useRef(backendApiUrl);
+  const backendApiUrlInputId = 'backend-api-url';
 
   // --- Refs for Audio & Session ---
   const wsRef = useRef<WebSocket | null>(null);
@@ -120,7 +122,6 @@ const App: React.FC = () => {
       return;
     }
     const checkBackend = async () => {
-      hasAutoConfiguredRef.current = false;
       setBackendStatus('connecting');
       try {
         const response = await fetch(`${backendApiUrl}/health`);
@@ -188,6 +189,13 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('ai_sec_config', JSON.stringify(config));
   }, [config]);
+
+  useEffect(() => {
+    if (previousBackendApiUrlRef.current !== backendApiUrl) {
+      hasAutoConfiguredRef.current = false;
+      previousBackendApiUrlRef.current = backendApiUrl;
+    }
+  }, [backendApiUrl]);
 
   useEffect(() => {
     if (backendApiUrl) {
@@ -646,8 +654,9 @@ const App: React.FC = () => {
                 </h3>
                 <div className="space-y-4">
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Backend API URL</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase" htmlFor={backendApiUrlInputId}>Backend API URL</label>
                     <input
+                      id={backendApiUrlInputId}
                       type="text"
                       value={backendApiUrl}
                       onChange={(e) => setBackendApiUrl(e.target.value)}
