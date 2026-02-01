@@ -13,6 +13,8 @@ const App: React.FC = () => {
   const [config, setConfig] = useState<SecretaryConfig>({
     ownerName: 'Alex',
     forwardingNumber: '+1 (555) 012-3456',
+    memoryEnabled: true,
+    memorySummary: '',
     secretaryVoice: 'Kore',
     noiseSuppression: true,
     echoCancellation: true,
@@ -34,6 +36,7 @@ const App: React.FC = () => {
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
   const [serviceConfig, setServiceConfig] = useState<ServiceConfig | null>(null);
   const hasAutoConfiguredRef = useRef(false);
+  const updateCheckRef = useRef(false);
 
   // --- Refs for Audio & Session ---
   const wsRef = useRef<WebSocket | null>(null);
@@ -118,6 +121,27 @@ const App: React.FC = () => {
   }, [backendApiUrl]);
 
   useEffect(() => {
+    if (updateCheckRef.current) return;
+    const updateUrl = process.env.AISEC_UPDATE_URL;
+    if (!updateUrl) return;
+    updateCheckRef.current = true;
+    const checkForUpdates = async () => {
+      try {
+        const response = await fetch(updateUrl);
+        if (!response.ok) return;
+        const payload = await response.json();
+        const version = payload?.version;
+        const notes = payload?.notes;
+        if (!version || version === '0.0.0') return;
+        addConsoleLine('UPDATE', `Update available: v${version}${notes ? ` - ${notes}` : ''}`, 'info');
+      } catch (error) {
+        console.warn('Update check failed', error);
+      }
+    };
+    checkForUpdates();
+  }, [addConsoleLine]);
+
+  useEffect(() => {
     requestMicrophonePermission();
   }, [requestMicrophonePermission]);
 
@@ -136,6 +160,19 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('ai_sec_config', JSON.stringify(config));
   }, [config]);
+
+  useEffect(() => {
+    if (!config.memoryEnabled) return;
+    if (!transcription.length) return;
+    const summary = transcription
+      .filter(line => line.type === 'message')
+      .slice(-6)
+      .map(line => line.text)
+      .join(' | ')
+      .trim();
+    if (!summary || summary === config.memorySummary) return;
+    setConfig(prev => ({ ...prev, memorySummary: summary }));
+  }, [config.memoryEnabled, config.memorySummary, transcription]);
 
   // Scroll console to bottom
   useEffect(() => {
@@ -319,6 +356,9 @@ const App: React.FC = () => {
             setActiveCallId(payload.callId);
             setTranscription([]);
             setStatus(CallStatus.SCREENING);
+            if (config.memoryEnabled && config.memorySummary) {
+              addConsoleLine('MEMORY', `Recall: ${config.memorySummary}`, 'info');
+            }
             addConsoleLine('SYSTEM', `Incoming call from ${matchedContact?.name || callerNumber}${matchedContact?.isVip ? ' [VIP]' : ''}`, 'system');
             addConsoleLine('SYSTEM', 'AI Secretary initializing...', 'info');
             addLog({
@@ -541,6 +581,28 @@ const App: React.FC = () => {
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-slate-500 uppercase">Forward Destination</label>
                     <input type="text" value={config.forwardingNumber} onChange={(e) => setConfig({...config, forwardingNumber: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Persistent Memory</label>
+                    <div className="flex items-center justify-between bg-slate-900 border border-slate-700 rounded-xl p-3">
+                      <span className="text-[10px] text-slate-400 uppercase tracking-widest">
+                        {config.memoryEnabled ? 'Enabled' : 'Disabled'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setConfig({ ...config, memoryEnabled: !config.memoryEnabled })}
+                        className={`w-12 h-6 rounded-full transition-all relative ${config.memoryEnabled ? 'bg-indigo-600' : 'bg-slate-700'}`}
+                      >
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${config.memoryEnabled ? 'left-7' : 'left-1'}`}></div>
+                      </button>
+                    </div>
+                    <textarea
+                      value={config.memorySummary}
+                      onChange={(e) => setConfig({ ...config, memorySummary: e.target.value })}
+                      placeholder="Memory summary saved locally."
+                      rows={3}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                    />
                   </div>
                 </div>
               </section>

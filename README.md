@@ -46,6 +46,7 @@ AI Secretary is an intelligent call screening application that uses Swireit Prog
 - **Audio Processing**: Configurable noise suppression, echo cancellation, and auto-gain control
 - **Language Support**: Multiple language focus options (English US/UK, Spanish, French, German, Japanese, Korean)
 - **Local Storage**: Persistent data storage for contacts, logs, and settings
+- **Persistent Memory**: Optional memory summary stored in local storage
 - **Cross-Platform**: Works on desktop web and Android devices (via APK)
 - **Responsive Design**: Optimized for desktop and mobile screens
 
@@ -91,6 +92,8 @@ Edit `.env.local` and add your service endpoints:
 ```env
 BACKEND_API_URL=http://localhost:8080
 BACKEND_WS_URL=ws://localhost:8080
+AISEC_UPDATE_URL=https://updates.example.com/aisec.json
+AISEC_REMOTE_ASSETS_URL=https://assets.example.com/aisec
 AISEC_API_URL=http://localhost:8080/api/ai/process
 AISEC_API_KEY=your_aisec_api_key
 AISEC_TIMEOUT_MS=5000
@@ -122,7 +125,26 @@ ALLOWED_ORIGINS=*
 
 5. **Launch the UI**
    
-   Open the app in your preferred client (web or Android). The UI auto-detects Swireit + AISec status from the backend.
+    Open the app in your preferred client (web or Android). The UI auto-detects Swireit + AISec status from the backend.
+
+### Minimal APK + Remote Assets
+
+To keep the APK size minimal, you can point the Android build to a remote asset host. When `AISEC_REMOTE_ASSETS_URL` is set, Capacitor loads the web bundle from that URL after install.
+
+```env
+AISEC_REMOTE_ASSETS_URL=https://assets.example.com/aisec
+```
+
+### Automatic Update Checks
+
+Set `AISEC_UPDATE_URL` to a hosted JSON with the latest version details. On launch, the console will show an update notice.
+
+```json
+{
+  "version": "1.2.3",
+  "notes": "Bug fixes and UI refinements"
+}
+```
 
 ## 📱 Android APK Deployment
 

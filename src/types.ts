@@ -31,6 +31,8 @@ export interface CallLog {
 export interface SecretaryConfig {
   ownerName: string;
   forwardingNumber: string;
+  memoryEnabled: boolean;
+  memorySummary: string;
   secretaryVoice: 'Zephyr' | 'Puck' | 'Charon' | 'Kore' | 'Fenrir';
   noiseSuppression: boolean;
   echoCancellation: boolean;
