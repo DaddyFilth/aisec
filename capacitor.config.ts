@@ -7,16 +7,11 @@ const config: CapacitorConfig = {
   appId: 'com.aisec.app',
   appName: 'AI Secretary',
   webDir: 'dist',
-  server: process.env.AISEC_REMOTE_ASSETS_URL
-    ? {
-      androidScheme: 'https',
-      cleartext: true,
-      url: process.env.AISEC_REMOTE_ASSETS_URL
-    }
-    : {
-      androidScheme: 'https',
-      cleartext: true
-    },
+  server: {
+    androidScheme: 'https',
+    cleartext: true,
+    ...(process.env.AISEC_REMOTE_ASSETS_URL ? { url: process.env.AISEC_REMOTE_ASSETS_URL } : {})
+  },
   android: {
     allowMixedContent: true,
     captureInput: true,

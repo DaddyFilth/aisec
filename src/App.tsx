@@ -44,6 +44,7 @@ const App: React.FC = () => {
   const consoleEndRef = useRef<HTMLDivElement>(null);
   const backendApiUrl = process.env.BACKEND_API_URL;
   const backendWsUrl = process.env.BACKEND_WS_URL || (backendApiUrl ? backendApiUrl.replace(/^http/, 'ws') : '');
+  const MAX_MEMORY_MESSAGES = 6;
 
   // Stable callback for adding console lines
   // Empty dependency array is safe because setTranscription is a stable setter from useState
@@ -166,7 +167,7 @@ const App: React.FC = () => {
     if (!transcription.length) return;
     const summary = transcription
       .filter(line => line.type === 'message')
-      .slice(-6)
+      .slice(-MAX_MEMORY_MESSAGES)
       .map(line => line.text)
       .join(' | ')
       .trim();
