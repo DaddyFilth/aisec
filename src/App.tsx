@@ -165,8 +165,7 @@ const App: React.FC = () => {
   }, [config]);
 
   useEffect(() => {
-    if (!config.memoryEnabled) return;
-    if (!transcription.length) return;
+    if (!config.memoryEnabled || !transcription.length) return;
     const memoryLines = transcription
       .filter(line => line.type === 'message')
       .slice(-MAX_MEMORY_MESSAGES);
@@ -364,7 +363,8 @@ const App: React.FC = () => {
             setTranscription([]);
             setStatus(CallStatus.SCREENING);
             if (config.memoryEnabled && config.memorySummary) {
-              addConsoleLine('SYSTEM', `Memory recall: ${config.memorySummary}`, 'info');
+              const formattedMemory = config.memorySummary.replace(/\s*\|\s*/g, '; ');
+              addConsoleLine('SYSTEM', `Memory recall: ${formattedMemory}`, 'info');
             }
             addConsoleLine('SYSTEM', `Incoming call from ${matchedContact?.name || callerNumber}${matchedContact?.isVip ? ' [VIP]' : ''}`, 'system');
             addConsoleLine('SYSTEM', 'AI Secretary initializing...', 'info');

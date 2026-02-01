@@ -129,7 +129,7 @@ ALLOWED_ORIGINS=*
 
 ### Minimal APK + Remote Assets
 
-To keep the APK size minimal, you can point the Android build to a remote asset host. When `AISEC_REMOTE_ASSETS_URL` is set, Capacitor loads the web bundle from that URL after install.
+To keep the APK size minimal, you can point the Android build to a remote asset host. When `AISEC_REMOTE_ASSETS_URL` is set, Capacitor loads the web bundle from that URL after install. Note that Capacitor's `server.url` mode is primarily intended for remote hosting scenarios and requires network access at runtime.
 
 ```env
 AISEC_REMOTE_ASSETS_URL=https://assets.example.com/aisec
