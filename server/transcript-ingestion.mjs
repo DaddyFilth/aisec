@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { buildTranscriptBatches, normalizeTranscriptPayload, DEFAULT_TRANSCRIPT_BATCH_SIZE } from './transcript-ingestion-utils.mjs';
 import { buildTranscriptUnigramModel } from './transcript-model-utils.mjs';
 
@@ -84,7 +84,7 @@ const run = async () => {
 
   if (modelPath) {
     const model = buildTranscriptUnigramModel(entries);
-    await import('node:fs/promises').then(({ writeFile }) => writeFile(modelPath, JSON.stringify(model, null, 2)));
+    await writeFile(modelPath, JSON.stringify(model, null, 2));
     console.log(`Saved transcript model to ${modelPath}.`);
   }
 
