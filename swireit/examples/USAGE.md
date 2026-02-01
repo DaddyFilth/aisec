@@ -173,6 +173,7 @@ Use free local AI models:
 
 ```bash
 # Install Ollama (free, runs locally)
+# Avoid piping remote scripts directly to sh (e.g., curl | sh).
 # 1) Download the installer script and review it before running:
 curl -fsSL https://ollama.ai/install.sh -o install-ollama.sh
 # 2) Inspect install-ollama.sh to ensure you trust it, then run:

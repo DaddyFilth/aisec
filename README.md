@@ -113,6 +113,8 @@ SWIREIT_VALIDATE_WEBHOOKS=true
 ALLOWED_ORIGINS=*
 ```
 
+> **Note:** The UI accepts `BACKEND_*` and `VITE_BACKEND_*` env variables. Prefer `BACKEND_*` in `.env.local` and use `VITE_BACKEND_*` only when needed by your tooling.
+
 > **Tip:** If you don't set `BACKEND_API_URL` ahead of time, you can enter it in the app's **Config** panel after launch. It is stored locally for future sessions.
 > Use `https://local.host:8080` for Swireit-backed local development (handy for local HTTPS certificates).
 

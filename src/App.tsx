@@ -707,7 +707,7 @@ const App: React.FC = () => {
                     <input type="text" value={config.ownerName} onChange={(e) => setConfig({...config, ownerName: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Screening Number</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">AI Screening Number</label>
                     <input
                       type="text"
                       value={serviceConfig?.swireit.screeningNumber ?? 'Not configured'}
