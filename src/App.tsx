@@ -48,6 +48,7 @@ const App: React.FC = () => {
   const MAX_MEMORY_MESSAGES = 6;
   const memorySignatureRef = useRef('');
   const memoryEnabledRef = useRef(config.memoryEnabled);
+  const memorySummaryRef = useRef(config.memorySummary);
 
   // Stable callback for adding console lines
   // Empty dependency array is safe because setTranscription is a stable setter from useState
@@ -168,6 +169,10 @@ const App: React.FC = () => {
     memoryEnabledRef.current = config.memoryEnabled;
   }, [config.memoryEnabled]);
 
+  useEffect(() => {
+    memorySummaryRef.current = config.memorySummary;
+  }, [config.memorySummary]);
+
   const memorySnapshot = useMemo(() => {
     const memoryLines = transcription
       .filter(line => line.type === 'message')
@@ -189,7 +194,7 @@ const App: React.FC = () => {
         ? prev
         : { ...prev, memorySummary: memorySnapshot.summary }
     ));
-  }, [memorySnapshot.signature]);
+  }, [memorySnapshot.signature, memorySnapshot.summary]);
 
   // Scroll console to bottom
   useEffect(() => {
@@ -373,8 +378,8 @@ const App: React.FC = () => {
             setActiveCallId(payload.callId);
             setTranscription([]);
             setStatus(CallStatus.SCREENING);
-            if (config.memoryEnabled && config.memorySummary) {
-              const formattedMemory = config.memorySummary.replace(/\s*\|\s*/g, '; ');
+            if (memoryEnabledRef.current && memorySummaryRef.current) {
+              const formattedMemory = memorySummaryRef.current.replace(/\s*\|\s*/g, '; ');
               addConsoleLine('SYSTEM', `Memory recall: ${formattedMemory}`, 'info');
             }
             addConsoleLine('SYSTEM', `Incoming call from ${matchedContact?.name || callerNumber}${matchedContact?.isVip ? ' [VIP]' : ''}`, 'system');

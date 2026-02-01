@@ -1,8 +1,4 @@
 import type { CapacitorConfig } from '@capacitor/cli';
-import dotenv from 'dotenv';
-
-dotenv.config();
-
 const remoteAssetsUrl = process.env.AISEC_REMOTE_ASSETS_URL;
 
 const config: CapacitorConfig = {
