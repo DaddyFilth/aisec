@@ -118,17 +118,12 @@ ALLOWED_ORIGINS=*
    node server/swireit-server.mjs
    ```
 
-5. **Start the development server**
+5. **Start the development server (auto-opens the UI)**
    ```bash
    npm run dev
    ```
 
-6. **Auto-open the UI (optional)**
-   ```bash
-   npm run ui:open
-   ```
-
-7. **Launch the UI**
+6. **Launch the UI**
     
     Open the app in your preferred client (web or Android). The UI auto-detects Swireit + AISec status from the backend.
 
