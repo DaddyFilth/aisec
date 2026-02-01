@@ -9,6 +9,9 @@ const App: React.FC = () => {
   const [status, setStatus] = useState<CallStatus>(CallStatus.IDLE);
   const [microphonePermission, setMicrophonePermission] = useState<'granted' | 'denied' | 'prompt'>('prompt');
   const [backendStatus, setBackendStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
+  const [backendApiUrl, setBackendApiUrl] = useState(() =>
+    localStorage.getItem('ai_sec_backend_api_url') || process.env.BACKEND_API_URL || ''
+  );
   const [wakeStatus, setWakeStatus] = useState<'idle' | 'listening' | 'triggered' | 'error'>('idle');
   const [config, setConfig] = useState<SecretaryConfig>({
     ownerName: 'Alex',
@@ -43,8 +46,8 @@ const App: React.FC = () => {
   const wsRef = useRef<WebSocket | null>(null);
   const wakeRecognitionRef = useRef<any>(null);
   const consoleEndRef = useRef<HTMLDivElement>(null);
-  const backendApiUrl = process.env.BACKEND_API_URL;
-  const backendWsUrl = process.env.BACKEND_WS_URL || (backendApiUrl ? backendApiUrl.replace(/^http/, 'ws') : '');
+  const backendWsUrl = process.env.BACKEND_WS_URL
+    || (backendApiUrl ? backendApiUrl.replace(/^http/, 'ws') : '');
   // Keep memory summary focused by using the most recent conversational lines.
   const MAX_MEMORY_MESSAGES = 6;
   const memorySignatureRef = useRef('');
@@ -111,8 +114,13 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!backendApiUrl) return;
+    if (!backendApiUrl) {
+      setBackendStatus('disconnected');
+      setServiceConfig(null);
+      return;
+    }
     const checkBackend = async () => {
+      hasAutoConfiguredRef.current = false;
       setBackendStatus('connecting');
       try {
         const response = await fetch(`${backendApiUrl}/health`);
@@ -180,6 +188,14 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('ai_sec_config', JSON.stringify(config));
   }, [config]);
+
+  useEffect(() => {
+    if (backendApiUrl) {
+      localStorage.setItem('ai_sec_backend_api_url', backendApiUrl);
+    } else {
+      localStorage.removeItem('ai_sec_backend_api_url');
+    }
+  }, [backendApiUrl]);
 
   useEffect(() => {
     memoryEnabledRef.current = config.memoryEnabled;
@@ -387,7 +403,7 @@ const App: React.FC = () => {
       }
     }
     if (!backendApiUrl) {
-      addConsoleLine('ERROR', 'Backend API is not configured. Set BACKEND_API_URL.', 'system');
+      addConsoleLine('ERROR', 'Backend API is not configured. Set it in Config.', 'system');
       return;
     }
     if (wsRef.current) {
@@ -630,6 +646,19 @@ const App: React.FC = () => {
                 </h3>
                 <div className="space-y-4">
                   <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Backend API URL</label>
+                    <input
+                      type="text"
+                      value={backendApiUrl}
+                      onChange={(e) => setBackendApiUrl(e.target.value)}
+                      placeholder="https://api.example.com"
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                    />
+                    <p className="text-[9px] text-slate-500 uppercase tracking-widest">
+                      Used to check backend status and connect calls.
+                    </p>
+                  </div>
+                  <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-slate-500 uppercase">Owner Identification</label>
                     <input type="text" value={config.ownerName} onChange={(e) => setConfig({...config, ownerName: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
                   </div>
@@ -797,7 +826,7 @@ const App: React.FC = () => {
                          <p className="text-[10px] max-w-xs text-slate-600">
                            {backendStatus === 'connected'
                              ? `Backend online. Wake word "${config.wakeName}" listening: ${wakeStatus === 'listening' ? 'on' : 'off'}.`
-                             : 'Backend offline. Configure BACKEND_API_URL to start.'}
+                             : 'Backend offline. Configure it in Config to start.'}
                          </p>
                          {backendStatus === 'connected' && serviceConfig && !serviceConfig.swireit.enabled && (
                            <p className="text-[10px] max-w-xs text-amber-400 uppercase tracking-widest">

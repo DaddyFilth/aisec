@@ -113,6 +113,8 @@ SWIREIT_VALIDATE_WEBHOOKS=true
 ALLOWED_ORIGINS=*
 ```
 
+> **Tip:** If you don't set `BACKEND_API_URL` ahead of time, you can enter it in the app's **Config** panel after launch. It is stored locally for future sessions.
+
 4. **Start the backend server**
    ```bash
    node server/swireit-server.mjs
