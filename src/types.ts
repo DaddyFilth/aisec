@@ -41,3 +41,24 @@ export interface SecretaryConfig {
   speechSynthesisEngine: string;
   wakeName: string;
 }
+
+export interface ServiceConfig {
+  swireit: {
+    enabled: boolean;
+    projectIdConfigured: boolean;
+    apiTokenConfigured: boolean;
+    spaceUrlConfigured: boolean;
+    callerIdConfigured: boolean;
+    twimlUrlConfigured: boolean;
+    screeningNumber: string | null;
+    forwardingNumber: string | null;
+  };
+  aisec: {
+    url: string;
+    configured: boolean;
+  };
+  services: {
+    ollama: boolean;
+    anythingllm: boolean;
+  };
+}

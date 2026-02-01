@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { CallStatus, CallLog, SecretaryConfig, Contact } from './types';
+import { CallStatus, CallLog, SecretaryConfig, Contact, ServiceConfig } from './types';
 import { Capacitor } from '@capacitor/core';
+import { fetchServiceConfig } from './services/configService';
 
 const App: React.FC = () => {
   // --- State ---
@@ -31,6 +32,7 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'history' | 'contacts'>('history');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
+  const [serviceConfig, setServiceConfig] = useState<ServiceConfig | null>(null);
 
   // --- Refs for Audio & Session ---
   const wsRef = useRef<WebSocket | null>(null);
@@ -48,7 +50,7 @@ const App: React.FC = () => {
 
   const requestMicrophonePermission = useCallback(async (): Promise<boolean> => {
     if (!navigator.mediaDevices?.getUserMedia) {
-      addConsoleLine('ERROR', 'Microphone access not supported in this browser.', 'system');
+      addConsoleLine('ERROR', 'Microphone access is not supported on this device.', 'system');
       return false;
     }
     try {
@@ -92,6 +94,17 @@ const App: React.FC = () => {
         const response = await fetch(`${backendApiUrl}/health`);
         if (!response.ok) throw new Error('Health check failed');
         setBackendStatus('connected');
+        const configResponse = await fetchServiceConfig(backendApiUrl);
+        if (configResponse) {
+          setServiceConfig(configResponse);
+          setConfig(prev => ({
+            ...prev,
+            forwardingNumber: configResponse.swireit.forwardingNumber ?? prev.forwardingNumber,
+            transcriptionEngine: configResponse.swireit.enabled ? 'Swireit Voice' : 'Unavailable',
+            orchestrationEngine: configResponse.services.anythingllm ? 'AnythingLLM' : 'Unavailable',
+            speechSynthesisEngine: configResponse.services.ollama ? 'Ollama' : 'Unavailable'
+          }));
+        }
       } catch (error) {
         console.error('Backend health check failed', error);
         setBackendStatus('error');
@@ -428,7 +441,7 @@ const App: React.FC = () => {
     const Recognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!Recognition) {
       setWakeStatus('error');
-      addConsoleLine('ERROR', 'Speech recognition not supported in this browser.', 'system');
+      addConsoleLine('ERROR', 'Speech recognition is not supported on this device.', 'system');
       return;
     }
     const recognition = new Recognition();
@@ -513,7 +526,16 @@ const App: React.FC = () => {
                     <input type="text" value={config.ownerName} onChange={(e) => setConfig({...config, ownerName: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Redirect Destination</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Screening Number</label>
+                    <input
+                      type="text"
+                      value={serviceConfig?.swireit.screeningNumber ?? 'Configure SWIREIT_SCREENING_NUMBER'}
+                      readOnly
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Forward Destination</label>
                     <input type="text" value={config.forwardingNumber} onChange={(e) => setConfig({...config, forwardingNumber: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
                   </div>
                 </div>
@@ -643,10 +665,20 @@ const App: React.FC = () => {
                        <div className="space-y-2">
                           <p className="font-black uppercase tracking-[0.2em] text-slate-500">AI Secretary Ready</p>
                          <p className="text-[10px] max-w-xs text-slate-600">
-                          {backendStatus === 'connected'
-                            ? `Backend online. Wake word "${config.wakeName}" listening: ${wakeStatus === 'listening' ? 'on' : 'off'}.`
-                            : 'Backend offline. Configure BACKEND_API_URL to start.'}
-                        </p>
+                           {backendStatus === 'connected'
+                             ? `Backend online. Wake word "${config.wakeName}" listening: ${wakeStatus === 'listening' ? 'on' : 'off'}.`
+                             : 'Backend offline. Configure BACKEND_API_URL to start.'}
+                         </p>
+                         {backendStatus === 'connected' && serviceConfig && !serviceConfig.swireit.enabled && (
+                           <p className="text-[10px] max-w-xs text-amber-400 uppercase tracking-widest">
+                           Swireit not configured. Set SWIREIT_PROJECT_ID, SWIREIT_API_TOKEN, and SWIREIT_SPACE_URL.
+                         </p>
+                         )}
+                         {backendStatus === 'connected' && serviceConfig && !serviceConfig.swireit.forwardingNumber && (
+                           <p className="text-[10px] max-w-xs text-amber-400 uppercase tracking-widest">
+                             Forwarding not configured. Set SWIREIT_FORWARD_NUMBER to enable option 2.
+                           </p>
+                         )}
                        </div>
                        <button 
                          onClick={startCall} 
@@ -755,10 +787,33 @@ const App: React.FC = () => {
             {/* Side Drawer: History & Contacts */}
             <div className="w-full lg:w-[400px] flex flex-col gap-6 shrink-0 h-full overflow-hidden">
               <section className="bg-slate-800/50 border border-slate-700 rounded-[2.5rem] flex flex-col flex-1 shadow-2xl overflow-hidden">
-                <div className="p-2 border-b border-slate-700 grid grid-cols-2 gap-2 bg-slate-900/40">
-                  <button onClick={() => setActiveTab('history')} className={`p-4 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'history' ? 'bg-slate-800 text-indigo-400 shadow-md' : 'text-slate-500 hover:text-slate-300'}`}>Call Vault</button>
-                  <button onClick={() => setActiveTab('contacts')} className={`p-4 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'contacts' ? 'bg-slate-800 text-indigo-400 shadow-md' : 'text-slate-500 hover:text-slate-300'}`}>Directory</button>
-                </div>
+                 <div className="p-2 border-b border-slate-700 grid grid-cols-2 gap-2 bg-slate-900/40">
+                   <button onClick={() => setActiveTab('history')} className={`p-4 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'history' ? 'bg-slate-800 text-indigo-400 shadow-md' : 'text-slate-500 hover:text-slate-300'}`}>Call Vault</button>
+                   <button onClick={() => setActiveTab('contacts')} className={`p-4 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'contacts' ? 'bg-slate-800 text-indigo-400 shadow-md' : 'text-slate-500 hover:text-slate-300'}`}>Directory</button>
+                 </div>
+                 {serviceConfig && (
+                   <div className="px-5 py-4 border-b border-slate-800 bg-slate-900/30 space-y-2">
+                     <div className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em]">Integration Status</div>
+                     <div className="grid grid-cols-2 gap-2 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                       <div className="flex items-center gap-2">
+                         <span className={`w-2 h-2 rounded-full ${serviceConfig.swireit.enabled ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+                         Swireit
+                       </div>
+                       <div className="flex items-center gap-2">
+                         <span className={`w-2 h-2 rounded-full ${serviceConfig.aisec.configured ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+                         AISec
+                       </div>
+                       <div className="flex items-center gap-2">
+                         <span className={`w-2 h-2 rounded-full ${serviceConfig.services.anythingllm ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+                         AnythingLLM
+                       </div>
+                       <div className="flex items-center gap-2">
+                         <span className={`w-2 h-2 rounded-full ${serviceConfig.services.ollama ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+                         Ollama
+                       </div>
+                     </div>
+                   </div>
+                 )}
                 
                 <div className="p-4 border-b border-slate-800">
                   <div className="relative">
@@ -848,12 +903,14 @@ const App: React.FC = () => {
             <div className="flex items-center gap-2"><div className={`w-2 h-2 rounded-full shadow-lg ${status === CallStatus.IDLE ? 'bg-green-500 shadow-green-500/50' : 'bg-red-500 animate-pulse shadow-red-500/50'}`}></div><span>Live Engine</span></div>
             <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-indigo-500 shadow-indigo-500/50"></div><span>Encryption Active</span></div>
           </div>
-          <div className="flex items-center gap-3">
-             <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">v2.5.0-flash</span>
-              <div className="px-3 py-1 bg-slate-800 rounded-full border border-slate-700">
-                 <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Swireit Stack</span>
-              </div>
-          </div>
+           <div className="flex items-center gap-3">
+              <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">v2.5.0-flash</span>
+               <div className="px-3 py-1 bg-slate-800 rounded-full border border-slate-700">
+                  <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">
+                    {serviceConfig?.swireit.enabled ? 'Swireit Linked' : 'Swireit Offline'}
+                  </span>
+               </div>
+           </div>
         </div>
       </footer>
 
