@@ -33,6 +33,7 @@ const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
   const [serviceConfig, setServiceConfig] = useState<ServiceConfig | null>(null);
+  const hasAutoConfiguredRef = useRef(false);
 
   // --- Refs for Audio & Session ---
   const wsRef = useRef<WebSocket | null>(null);
@@ -97,13 +98,16 @@ const App: React.FC = () => {
         const configResponse = await fetchServiceConfig(backendApiUrl);
         if (configResponse) {
           setServiceConfig(configResponse);
-          setConfig(prev => ({
-            ...prev,
-            forwardingNumber: configResponse.swireit.forwardingNumber ?? prev.forwardingNumber,
-            transcriptionEngine: configResponse.swireit.enabled ? 'Swireit Voice' : prev.transcriptionEngine,
-            orchestrationEngine: configResponse.services.anythingllm ? 'AnythingLLM' : prev.orchestrationEngine,
-            speechSynthesisEngine: configResponse.services.ollama ? 'Ollama' : prev.speechSynthesisEngine
-          }));
+          if (!hasAutoConfiguredRef.current) {
+            setConfig(prev => ({
+              ...prev,
+              forwardingNumber: configResponse.swireit.forwardingNumber ?? prev.forwardingNumber,
+              transcriptionEngine: configResponse.swireit.enabled ? 'Swireit Voice' : prev.transcriptionEngine,
+              orchestrationEngine: configResponse.services.anythingllm ? 'AnythingLLM' : prev.orchestrationEngine,
+              speechSynthesisEngine: configResponse.services.ollama ? 'Ollama' : prev.speechSynthesisEngine
+            }));
+            hasAutoConfiguredRef.current = true;
+          }
         }
       } catch (error) {
         console.error('Backend health check failed', error);
@@ -671,12 +675,12 @@ const App: React.FC = () => {
                          </p>
                          {backendStatus === 'connected' && serviceConfig && !serviceConfig.swireit.enabled && (
                            <p className="text-[10px] max-w-xs text-amber-400 uppercase tracking-widest">
-                           Warning: Swireit not configured. Set SWIREIT_PROJECT_ID, SWIREIT_API_TOKEN, and SWIREIT_SPACE_URL.
+                           Warning: Swireit integration unavailable. Contact your administrator.
                          </p>
                          )}
                          {backendStatus === 'connected' && serviceConfig && !serviceConfig.swireit.forwardingNumber && (
                            <p className="text-[10px] max-w-xs text-amber-400 uppercase tracking-widest">
-                             Warning: forwarding not configured. Set SWIREIT_FORWARD_NUMBER to enable call forwarding.
+                             Warning: call forwarding unavailable. Contact your administrator.
                            </p>
                          )}
                        </div>

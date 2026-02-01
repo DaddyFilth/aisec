@@ -8,6 +8,12 @@ const normalizeInput = (value) => {
   return String(value).trim().toLowerCase();
 };
 
+/**
+ * Parse caller input to determine routing choice.
+ * @param {string | number | null | undefined} digits
+ * @param {string | null | undefined} speech
+ * @returns {'1' | '2' | null}
+ */
 export const parseCallRoutingChoice = (digits, speech) => {
   const digitValue = normalizeInput(digits);
   if (digitValue === '1' || digitValue === '2') {
