@@ -95,10 +95,10 @@ const App: React.FC = () => {
     setBlockedNumbers(parseStored<string[]>(localStorage.getItem('ai_sec_blocked'), []));
     const savedLogs = parseStored<CallLog[]>(localStorage.getItem('ai_sec_logs'), []);
     setCallLogs(savedLogs.map((l: CallLog) => {
-      const parsedTimestamp = new Date(l.timestamp);
+      const rawTimestamp = l.timestamp instanceof Date ? l.timestamp : new Date(l.timestamp);
       return {
         ...l,
-        timestamp: Number.isNaN(parsedTimestamp.getTime()) ? new Date() : parsedTimestamp
+        timestamp: Number.isNaN(rawTimestamp.getTime()) ? new Date() : rawTimestamp
       };
     }));
     const savedConfig = parseStored<SecretaryConfig | null>(localStorage.getItem('ai_sec_config'), null);
@@ -250,6 +250,9 @@ const App: React.FC = () => {
 
   const normalizePhoneNumber = (value: string) => {
     const normalized = value.replace(/[^\d\+]/g, '');
+    const plusMatches = normalized.match(/\+/g) ?? [];
+    if (plusMatches.length > 1) return '';
+    if (plusMatches.length === 1 && !normalized.startsWith('+')) return '';
     return /\d/.test(normalized) ? normalized : '';
   };
 
