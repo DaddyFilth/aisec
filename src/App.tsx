@@ -9,13 +9,14 @@ const App: React.FC = () => {
   const [status, setStatus] = useState<CallStatus>(CallStatus.IDLE);
   const [microphonePermission, setMicrophonePermission] = useState<'granted' | 'denied' | 'prompt'>('prompt');
   const metaEnv = import.meta.env as Record<string, string | undefined>;
+  const backendApiStorageKey = 'ai_sec_backend_api_url';
   const exampleBackendApiUrl = 'https://local.host:8080';
   const backendApiEnvUrl = process.env.BACKEND_API_URL || metaEnv.VITE_BACKEND_API_URL || '';
   const backendWsEnvUrl = process.env.BACKEND_WS_URL || metaEnv.VITE_BACKEND_WS_URL;
   const backendApiKeyEnv = process.env.BACKEND_API_KEY || metaEnv.VITE_BACKEND_API_KEY;
   const [backendStatus, setBackendStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
   const [backendApiUrl, setBackendApiUrl] = useState(() =>
-    localStorage.getItem('ai_sec_backend_api_url') || backendApiEnvUrl
+    localStorage.getItem(backendApiStorageKey) || backendApiEnvUrl
   );
   const [wakeStatus, setWakeStatus] = useState<'idle' | 'listening' | 'triggered' | 'error'>('idle');
   const [config, setConfig] = useState<SecretaryConfig>({
@@ -59,7 +60,9 @@ const App: React.FC = () => {
     if (!backendApiUrl) return true;
     try {
       const parsedUrl = new URL(backendApiUrl);
-      return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
+      const isHttp = parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
+      const hasHostname = Boolean(parsedUrl.hostname);
+      return isHttp && hasHostname;
     } catch {
       return false;
     }
@@ -214,11 +217,11 @@ const App: React.FC = () => {
   }, [backendApiUrl]);
 
   useEffect(() => {
-    const storedBackendUrl = localStorage.getItem('ai_sec_backend_api_url');
+    const storedBackendUrl = localStorage.getItem(backendApiStorageKey);
     if (backendApiUrl && storedBackendUrl !== backendApiUrl) {
-      localStorage.setItem('ai_sec_backend_api_url', backendApiUrl);
+      localStorage.setItem(backendApiStorageKey, backendApiUrl);
     } else if (!backendApiUrl && storedBackendUrl) {
-      localStorage.removeItem('ai_sec_backend_api_url');
+      localStorage.removeItem(backendApiStorageKey);
     }
   }, [backendApiUrl]);
 
@@ -687,7 +690,7 @@ const App: React.FC = () => {
                       className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                     />
                     <p id={backendApiUrlHelpId} className="text-[9px] text-slate-500 uppercase tracking-widest">
-                      Used to check backend status and connect calls (e.g., {exampleBackendApiUrl}).
+                      Used to check backend status and connect calls (e.g., {exampleBackendApiUrl}). Changes apply on the next connection check.
                     </p>
                     {!isBackendApiUrlValid && (
                       <p id={backendApiUrlErrorId} className="text-[9px] text-amber-400 uppercase tracking-widest" role="alert" aria-live="polite">

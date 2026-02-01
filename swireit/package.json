@@ -1,0 +1,34 @@
+{
+  "name": "swireit",
+  "version": "1.0.0",
+  "description": "Free real-time call handling platform with AI agent tools",
+  "main": "dist/server.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "tsx watch src/server.ts",
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "keywords": [
+    "webrtc",
+    "voice",
+    "ai",
+    "telephony",
+    "real-time"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "ws": "^8.14.2",
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.20",
+    "@types/node": "^20.9.0",
+    "@types/ws": "^8.5.8",
+    "typescript": "^5.2.2",
+    "tsx": "^4.6.2"
+  }
+}
