@@ -12,6 +12,7 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https',
     cleartext: true,
+    // Remote asset hosting requires network connectivity at runtime.
     ...(remoteAssetsUrl ? { url: remoteAssetsUrl } : {})
   },
   android: {
