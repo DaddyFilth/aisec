@@ -96,6 +96,9 @@ const App: React.FC = () => {
     const savedLogs = parseStored<CallLog[]>(localStorage.getItem('ai_sec_logs'), []);
     setCallLogs(savedLogs.map((l: CallLog) => {
       const rawTimestamp = l.timestamp instanceof Date ? l.timestamp : new Date(l.timestamp);
+      if (Number.isNaN(rawTimestamp.getTime())) {
+        console.warn('Invalid call log timestamp detected');
+      }
       return {
         ...l,
         timestamp: Number.isNaN(rawTimestamp.getTime()) ? new Date() : rawTimestamp
@@ -261,7 +264,7 @@ const App: React.FC = () => {
     const normalizedPhone = normalizePhoneNumber(phoneNumber);
     if (!normalizedPhone) return;
     const newContact: Contact = { 
-      id: Math.random().toString(36).substring(7), 
+      id: crypto.randomUUID(),
       name, 
       phoneNumber: normalizedPhone,
       isVip
