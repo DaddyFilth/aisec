@@ -1,3 +1,8 @@
+/**
+ * Normalize incoming DTMF/speech input to a comparable lowercase string.
+ * @param {string | number | null | undefined} value
+ * @returns {string}
+ */
 const normalizeInput = (value) => {
   if (value === undefined || value === null) return '';
   return String(value).trim().toLowerCase();

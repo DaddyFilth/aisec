@@ -100,9 +100,15 @@ const validatePhone = (value) => PHONE_REGEX.test(value || '');
 
 const validateCallId = (value) => /^(CA[0-9a-f]{32}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.test(value || '');
 
-if (!SWIREIT_PROJECT_ID || !SWIREIT_API_TOKEN || !SWIREIT_SPACE_URL) {
-  console.warn('Swireit credentials are not configured. Set SWIREIT_PROJECT_ID, SWIREIT_API_TOKEN, and SWIREIT_SPACE_URL.');
-}
+  if (!SWIREIT_PROJECT_ID || !SWIREIT_API_TOKEN || !SWIREIT_SPACE_URL) {
+    console.warn('Swireit credentials are not configured. Set SWIREIT_PROJECT_ID, SWIREIT_API_TOKEN, and SWIREIT_SPACE_URL.');
+  }
+  if (SWIREIT_SCREENING_NUMBER && !validatePhone(SWIREIT_SCREENING_NUMBER)) {
+    console.warn('Swireit screening number is invalid. Provide a valid E.164 SWIREIT_SCREENING_NUMBER.');
+  }
+  if (SWIREIT_FORWARD_NUMBER && !validatePhone(SWIREIT_FORWARD_NUMBER)) {
+    console.warn('Swireit forward number is invalid. Provide a valid E.164 SWIREIT_FORWARD_NUMBER.');
+  }
 
 const swireitClient = SWIREIT_PROJECT_ID && SWIREIT_API_TOKEN && SWIREIT_SPACE_URL
   ? swireit.createClient(SWIREIT_PROJECT_ID, SWIREIT_API_TOKEN, { swireitSpaceUrl: SWIREIT_SPACE_URL })

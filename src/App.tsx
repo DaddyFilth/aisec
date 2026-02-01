@@ -100,9 +100,15 @@ const App: React.FC = () => {
           setConfig(prev => ({
             ...prev,
             forwardingNumber: configResponse.swireit.forwardingNumber ?? prev.forwardingNumber,
-            transcriptionEngine: configResponse.swireit.enabled ? 'Swireit Voice' : prev.transcriptionEngine,
-            orchestrationEngine: configResponse.services.anythingllm ? 'AnythingLLM' : prev.orchestrationEngine,
-            speechSynthesisEngine: configResponse.services.ollama ? 'Ollama' : prev.speechSynthesisEngine
+            transcriptionEngine: configResponse.swireit.enabled
+              ? (prev.transcriptionEngine === 'Swireit Voice' ? prev.transcriptionEngine : 'Swireit Voice')
+              : prev.transcriptionEngine,
+            orchestrationEngine: configResponse.services.anythingllm
+              ? (prev.orchestrationEngine === 'AnythingLLM' ? prev.orchestrationEngine : 'AnythingLLM')
+              : prev.orchestrationEngine,
+            speechSynthesisEngine: configResponse.services.ollama
+              ? (prev.speechSynthesisEngine === 'Ollama' ? prev.speechSynthesisEngine : 'Ollama')
+              : prev.speechSynthesisEngine
           }));
         }
       } catch (error) {
