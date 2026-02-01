@@ -8,7 +8,7 @@ const normalizeInput = (value) => {
   return String(value)
     .trim()
     .toLowerCase()
-    .replace(/[^\w\s+]/g, ' ')
+    .replace(/[^\w\s\+]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 };
@@ -27,6 +27,6 @@ export const parseCallRoutingChoice = (digits, speech) => {
   const spokenValue = normalizeInput(speech);
   if (!spokenValue) return null;
   if (/(?:^|\D)1(?:\D|$)|\bone\b/.test(spokenValue)) return '1';
-  if (/(?:^|\D)2(?:\D|$)|\b(two|to|too)\b/.test(spokenValue)) return '2';
+  if (/(?:^|\D)2(?:\D|$)|\b(two|to)\b/.test(spokenValue)) return '2';
   return null;
 };

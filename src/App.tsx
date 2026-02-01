@@ -79,6 +79,9 @@ const App: React.FC = () => {
 
   // --- Persistence ---
   useEffect(() => {
+    /**
+     * Parse persisted localStorage state with a fallback value.
+     */
     const parseStored = <T,>(value: string | null, fallback: T): T => {
       if (!value) return fallback;
       try {
@@ -91,7 +94,13 @@ const App: React.FC = () => {
     setContacts(parseStored<Contact[]>(localStorage.getItem('ai_sec_contacts'), []));
     setBlockedNumbers(parseStored<string[]>(localStorage.getItem('ai_sec_blocked'), []));
     const savedLogs = parseStored<CallLog[]>(localStorage.getItem('ai_sec_logs'), []);
-    setCallLogs(savedLogs.map((l: CallLog) => ({ ...l, timestamp: new Date(l.timestamp) })));
+    setCallLogs(savedLogs.map((l: CallLog) => {
+      const parsedTimestamp = new Date(l.timestamp);
+      return {
+        ...l,
+        timestamp: Number.isNaN(parsedTimestamp.getTime()) ? new Date() : parsedTimestamp
+      };
+    }));
     const savedConfig = parseStored<SecretaryConfig | null>(localStorage.getItem('ai_sec_config'), null);
     if (savedConfig) setConfig(savedConfig);
   }, []);
@@ -240,7 +249,7 @@ const App: React.FC = () => {
   }, [contacts, searchQuery]);
 
   const normalizePhoneNumber = (value: string) => {
-    const normalized = value.replace(/[^\d+]/g, '');
+    const normalized = value.replace(/[^\d\+]/g, '');
     return /\d/.test(normalized) ? normalized : '';
   };
 
