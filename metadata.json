@@ -1,6 +1,6 @@
 {
   "name": "Copy of Personal AI Secretary",
-  "description": "An intelligent call screening assistant that asks callers for their name and purpose, allowing you to decide whether to pick up, send to voicemail, or forward the call.",
+  "description": "A softswitch, a PBX, an AI IVR, and a call router using Asterisk.",
   "requestFramePermissions": [
     "microphone"
   ]
