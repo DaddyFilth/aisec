@@ -126,9 +126,13 @@ const App: React.FC = () => {
   }, [backendApiUrl]);
 
   useEffect(() => {
-    const updateUrl = process.env.AISEC_UPDATE_URL;
-    if (updateCheckRef.current || !updateUrl) return;
+    if (updateCheckRef.current) return;
     updateCheckRef.current = true;
+    const updateUrl = process.env.AISEC_UPDATE_URL;
+    if (!updateUrl) {
+      updateCheckRef.current = false;
+      return;
+    }
     const checkForUpdates = async () => {
       try {
         const response = await fetch(updateUrl);
@@ -194,7 +198,7 @@ const App: React.FC = () => {
         ? prev
         : { ...prev, memorySummary: memorySnapshot.summary }
     ));
-  }, [memorySnapshot.signature, memorySnapshot.summary]);
+  }, [memorySnapshot.signature]);
 
   // Scroll console to bottom
   useEffect(() => {
