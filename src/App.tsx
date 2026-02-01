@@ -676,7 +676,7 @@ const App: React.FC = () => {
                          )}
                          {backendStatus === 'connected' && serviceConfig && !serviceConfig.swireit.forwardingNumber && (
                            <p className="text-[10px] max-w-xs text-amber-400 uppercase tracking-widest">
-                             Forwarding not configured. Set SWIREIT_FORWARD_NUMBER to enable option 2.
+                             Forwarding not configured. Set SWIREIT_FORWARD_NUMBER to enable call forwarding.
                            </p>
                          )}
                        </div>

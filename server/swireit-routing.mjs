@@ -10,7 +10,7 @@ export const parseCallRoutingChoice = (digits, speech) => {
   }
   const spokenValue = normalizeInput(speech);
   if (!spokenValue) return null;
-  if (spokenValue.includes('1') || spokenValue.includes('one')) return '1';
-  if (spokenValue.includes('2') || spokenValue.includes('two') || spokenValue.includes('to') || spokenValue.includes('too')) return '2';
+  if (['1', 'one'].includes(spokenValue)) return '1';
+  if (['2', 'two', 'to', 'too'].includes(spokenValue)) return '2';
   return null;
 };

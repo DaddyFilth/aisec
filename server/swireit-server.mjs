@@ -179,6 +179,7 @@ app.post('/swireit/voice', validateSwireitRequest, async (req, res) => {
   const caller = req.body.From || 'Unknown caller';
   const callId = req.body.CallId || req.body.CallID || req.body.CallSid || `call-${Date.now()}`;
   broadcast({ type: 'call.start', callId, from: caller });
+  const forwardMessage = SWIREIT_FORWARD_NUMBER ? ` to ${SWIREIT_FORWARD_NUMBER}.` : '.';
   response.gather({
     input: 'speech dtmf',
     action: '/swireit/voice/route',
@@ -187,7 +188,7 @@ app.post('/swireit/voice', validateSwireitRequest, async (req, res) => {
     language: 'en-US',
     hints: 'one, two, 1, 2',
     numDigits: 1
-  }).say('Hello. Say or press 1 to reach the AI secretary. Say or press 2 to be forwarded.');
+  }).say(`Hello. Say or press 1 for AI screening, or 2 to forward${forwardMessage}`);
   response.say('We did not receive a response. Goodbye.');
   response.hangup();
   res.type('text/xml');
@@ -200,8 +201,15 @@ app.post('/swireit/voice/route', validateSwireitRequest, async (req, res) => {
   const choice = parseCallRoutingChoice(req.body.Digits, req.body.SpeechResult);
   if (choice === '2') {
     if (!SWIREIT_FORWARD_NUMBER || !validatePhone(SWIREIT_FORWARD_NUMBER)) {
-      response.say('Forwarding is not configured. Please hold for screening.');
-      response.redirect('/swireit/voice');
+      response.gather({
+        input: 'speech',
+        action: '/swireit/voice/handle',
+        method: 'POST',
+        speechTimeout: 'auto',
+        language: 'en-US'
+      }).say('Forwarding is not configured. Please tell me how I can help.');
+      response.say('We did not receive a response. Goodbye.');
+      response.hangup();
     } else {
       broadcast({ type: 'call.forwarding', callId, to: SWIREIT_FORWARD_NUMBER });
       response.say('Connecting you now.');
