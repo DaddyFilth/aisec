@@ -8,7 +8,7 @@ const normalizeInput = (value) => {
   return String(value)
     .trim()
     .toLowerCase()
-    .replace(/[^\w\s\+]/g, ' ')
+    .replace(/[^\w\s+]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 };

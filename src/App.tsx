@@ -96,12 +96,13 @@ const App: React.FC = () => {
     const savedLogs = parseStored<CallLog[]>(localStorage.getItem('ai_sec_logs'), []);
     setCallLogs(savedLogs.map((l: CallLog) => {
       const rawTimestamp = l.timestamp instanceof Date ? l.timestamp : new Date(l.timestamp);
-      if (Number.isNaN(rawTimestamp.getTime())) {
+      const parsedTime = rawTimestamp.getTime();
+      if (Number.isNaN(parsedTime)) {
         console.warn('Invalid call log timestamp detected');
       }
       return {
         ...l,
-        timestamp: Number.isNaN(rawTimestamp.getTime()) ? new Date() : rawTimestamp
+        timestamp: Number.isNaN(parsedTime) ? new Date() : rawTimestamp
       };
     }));
     const savedConfig = parseStored<SecretaryConfig | null>(localStorage.getItem('ai_sec_config'), null);
@@ -252,7 +253,7 @@ const App: React.FC = () => {
   }, [contacts, searchQuery]);
 
   const normalizePhoneNumber = (value: string) => {
-    const normalized = value.replace(/[^\d\+]/g, '');
+    const normalized = value.replace(/[^\d+]/g, '');
     const plusMatches = normalized.match(/\+/g) ?? [];
     if (plusMatches.length > 1) return '';
     if (plusMatches.length === 1 && !normalized.startsWith('+')) return '';
