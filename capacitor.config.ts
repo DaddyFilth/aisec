@@ -3,6 +3,8 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+const remoteAssetsUrl = process.env.AISEC_REMOTE_ASSETS_URL;
+
 const config: CapacitorConfig = {
   appId: 'com.aisec.app',
   appName: 'AI Secretary',
@@ -10,7 +12,7 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https',
     cleartext: true,
-    ...(process.env.AISEC_REMOTE_ASSETS_URL ? { url: process.env.AISEC_REMOTE_ASSETS_URL } : {})
+    ...(remoteAssetsUrl ? { url: remoteAssetsUrl } : {})
   },
   android: {
     allowMixedContent: true,
