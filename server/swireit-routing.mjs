@@ -1,5 +1,5 @@
 /**
- * Normalize incoming DTMF/speech input to a comparable lowercase string.
+ * Normalize incoming DTMF/speech input to a comparable lowercase string, preserving '+' when present.
  * @param {string | number | null | undefined} value
  * @returns {string}
  */

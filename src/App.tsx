@@ -264,8 +264,13 @@ const App: React.FC = () => {
     if (!name || !phoneNumber) return;
     const normalizedPhone = normalizePhoneNumber(phoneNumber);
     if (!normalizedPhone) return;
+    const createId = () => (
+      typeof crypto?.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `contact-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    );
     const newContact: Contact = { 
-      id: crypto.randomUUID(),
+      id: createId(),
       name, 
       phoneNumber: normalizedPhone,
       isVip

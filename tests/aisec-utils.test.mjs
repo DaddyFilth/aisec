@@ -48,5 +48,7 @@ describe('parseCallRoutingChoice', () => {
     assert.equal(parseCallRoutingChoice(undefined, ''), null);
     assert.equal(parseCallRoutingChoice('9', 'maybe'), null);
     assert.equal(parseCallRoutingChoice(undefined, 'tone'), null);
+    assert.equal(parseCallRoutingChoice(undefined, '21'), null);
+    assert.equal(parseCallRoutingChoice(undefined, '12'), null);
   });
 });
