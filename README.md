@@ -123,8 +123,13 @@ ALLOWED_ORIGINS=*
    npm run dev
    ```
 
-5. **Launch the UI**
-   
+6. **Auto-open the UI (optional)**
+   ```bash
+   npm run ui:open
+   ```
+
+7. **Launch the UI**
+    
     Open the app in your preferred client (web or Android). The UI auto-detects Swireit + AISec status from the backend.
 
 ### Minimal APK + Remote Assets

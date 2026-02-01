@@ -5,7 +5,12 @@
  */
 const normalizeInput = (value) => {
   if (value === undefined || value === null) return '';
-  return String(value).trim().toLowerCase();
+  return String(value)
+    .trim()
+    .toLowerCase()
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 };
 
 /**
@@ -21,7 +26,7 @@ export const parseCallRoutingChoice = (digits, speech) => {
   }
   const spokenValue = normalizeInput(speech);
   if (!spokenValue) return null;
-  if (['1', 'one'].includes(spokenValue)) return '1';
-  if (['2', 'two'].includes(spokenValue)) return '2';
+  if (/\b1\b|\bone\b/.test(spokenValue)) return '1';
+  if (/\b2\b|\b(two|to|too)\b/.test(spokenValue)) return '2';
   return null;
 };

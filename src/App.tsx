@@ -79,20 +79,21 @@ const App: React.FC = () => {
 
   // --- Persistence ---
   useEffect(() => {
-    const savedContacts = localStorage.getItem('ai_sec_contacts');
-    if (savedContacts) setContacts(JSON.parse(savedContacts));
-
-    const savedBlocked = localStorage.getItem('ai_sec_blocked');
-    if (savedBlocked) setBlockedNumbers(JSON.parse(savedBlocked));
-    
-    const savedLogs = localStorage.getItem('ai_sec_logs');
-    if (savedLogs) {
-      const parsed = JSON.parse(savedLogs);
-      setCallLogs(parsed.map((l: any) => ({ ...l, timestamp: new Date(l.timestamp) })));
-    }
-
-    const savedConfig = localStorage.getItem('ai_sec_config');
-    if (savedConfig) setConfig(JSON.parse(savedConfig));
+    const parseStored = <T,>(value: string | null, fallback: T): T => {
+      if (!value) return fallback;
+      try {
+        return JSON.parse(value) as T;
+      } catch (error) {
+        console.warn('Failed to parse stored state', error);
+        return fallback;
+      }
+    };
+    setContacts(parseStored<Contact[]>(localStorage.getItem('ai_sec_contacts'), []));
+    setBlockedNumbers(parseStored<string[]>(localStorage.getItem('ai_sec_blocked'), []));
+    const savedLogs = parseStored<CallLog[]>(localStorage.getItem('ai_sec_logs'), []);
+    setCallLogs(savedLogs.map((l: CallLog) => ({ ...l, timestamp: new Date(l.timestamp) })));
+    const savedConfig = parseStored<SecretaryConfig | null>(localStorage.getItem('ai_sec_config'), null);
+    if (savedConfig) setConfig(savedConfig);
   }, []);
 
   useEffect(() => {
@@ -238,12 +239,16 @@ const App: React.FC = () => {
     );
   }, [contacts, searchQuery]);
 
+  const normalizePhoneNumber = (value: string) => value.replace(/[^\d+]/g, '');
+
   const addContact = (name: string, phoneNumber: string, isVip: boolean = false) => {
     if (!name || !phoneNumber) return;
+    const normalizedPhone = normalizePhoneNumber(phoneNumber);
+    if (!normalizedPhone) return;
     const newContact: Contact = { 
       id: Math.random().toString(36).substring(7), 
       name, 
-      phoneNumber,
+      phoneNumber: normalizedPhone,
       isVip
     };
     setContacts(prev => [...prev, newContact]);
@@ -258,12 +263,14 @@ const App: React.FC = () => {
   };
 
   const blockNumber = (number: string) => {
-    if (!number || blockedNumbers.includes(number)) return;
-    setBlockedNumbers(prev => [...prev, number]);
+    const normalized = normalizePhoneNumber(number);
+    if (!normalized || blockedNumbers.includes(normalized)) return;
+    setBlockedNumbers(prev => [...prev, normalized]);
   };
 
   const unblockNumber = (number: string) => {
-    setBlockedNumbers(prev => prev.filter(n => n !== number));
+    const normalized = normalizePhoneNumber(number);
+    setBlockedNumbers(prev => prev.filter(n => n !== normalized));
   };
 
   // --- Status UI Config ---
