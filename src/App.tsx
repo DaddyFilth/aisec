@@ -9,7 +9,7 @@ const App: React.FC = () => {
   const [status, setStatus] = useState<CallStatus>(CallStatus.IDLE);
   const [microphonePermission, setMicrophonePermission] = useState<'granted' | 'denied' | 'prompt'>('prompt');
   const metaEnv = import.meta.env as Record<string, string | undefined>;
-  const defaultBackendApiUrlExample = 'https://local.host:8080';
+  const exampleBackendApiUrl = 'https://local.host:8080';
   const backendApiEnvUrl = process.env.BACKEND_API_URL || metaEnv.VITE_BACKEND_API_URL || '';
   const backendWsEnvUrl = process.env.BACKEND_WS_URL || metaEnv.VITE_BACKEND_WS_URL;
   const backendApiKeyEnv = process.env.BACKEND_API_KEY || metaEnv.VITE_BACKEND_API_KEY;
@@ -215,11 +215,9 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const storedBackendUrl = localStorage.getItem('ai_sec_backend_api_url');
-    if (backendApiUrl) {
-      if (storedBackendUrl !== backendApiUrl) {
-        localStorage.setItem('ai_sec_backend_api_url', backendApiUrl);
-      }
-    } else if (storedBackendUrl) {
+    if (backendApiUrl && storedBackendUrl !== backendApiUrl) {
+      localStorage.setItem('ai_sec_backend_api_url', backendApiUrl);
+    } else if (!backendApiUrl && storedBackendUrl) {
       localStorage.removeItem('ai_sec_backend_api_url');
     }
   }, [backendApiUrl]);
@@ -685,11 +683,11 @@ const App: React.FC = () => {
                       onChange={(e) => setBackendApiUrl(e.target.value)}
                       aria-describedby={`${backendApiUrlHelpId}${!isBackendApiUrlValid ? ` ${backendApiUrlErrorId}` : ''}`}
                       aria-invalid={!isBackendApiUrlValid}
-                      placeholder={defaultBackendApiUrlExample}
+                      placeholder={exampleBackendApiUrl}
                       className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                     />
                     <p id={backendApiUrlHelpId} className="text-[9px] text-slate-500 uppercase tracking-widest">
-                      Used to check backend status and connect calls (e.g., {defaultBackendApiUrlExample}).
+                      Used to check backend status and connect calls (e.g., {exampleBackendApiUrl}).
                     </p>
                     {!isBackendApiUrlValid && (
                       <p id={backendApiUrlErrorId} className="text-[9px] text-amber-400 uppercase tracking-widest" role="alert" aria-live="polite">
