@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { CallStatus, CallLog, SecretaryConfig, Contact } from './types';
+import { CallStatus, CallLog, SecretaryConfig, Contact, ServiceConfig } from './types';
 import { Capacitor } from '@capacitor/core';
+import { fetchServiceConfig } from './services/configService';
 
 const App: React.FC = () => {
   // --- State ---
@@ -12,6 +13,8 @@ const App: React.FC = () => {
   const [config, setConfig] = useState<SecretaryConfig>({
     ownerName: 'Alex',
     forwardingNumber: '+1 (555) 012-3456',
+    memoryEnabled: true,
+    memorySummary: '',
     secretaryVoice: 'Kore',
     noiseSuppression: true,
     echoCancellation: true,
@@ -31,6 +34,9 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'history' | 'contacts'>('history');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
+  const [serviceConfig, setServiceConfig] = useState<ServiceConfig | null>(null);
+  const hasAutoConfiguredRef = useRef(false);
+  const updateCheckRef = useRef(false);
 
   // --- Refs for Audio & Session ---
   const wsRef = useRef<WebSocket | null>(null);
@@ -38,6 +44,11 @@ const App: React.FC = () => {
   const consoleEndRef = useRef<HTMLDivElement>(null);
   const backendApiUrl = process.env.BACKEND_API_URL;
   const backendWsUrl = process.env.BACKEND_WS_URL || (backendApiUrl ? backendApiUrl.replace(/^http/, 'ws') : '');
+  // Keep memory summary focused by using the most recent conversational lines.
+  const MAX_MEMORY_MESSAGES = 6;
+  const memorySignatureRef = useRef('');
+  const memoryEnabledRef = useRef(config.memoryEnabled);
+  const memorySummaryRef = useRef(config.memorySummary);
 
   // Stable callback for adding console lines
   // Empty dependency array is safe because setTranscription is a stable setter from useState
@@ -48,7 +59,7 @@ const App: React.FC = () => {
 
   const requestMicrophonePermission = useCallback(async (): Promise<boolean> => {
     if (!navigator.mediaDevices?.getUserMedia) {
-      addConsoleLine('ERROR', 'Microphone access not supported in this browser.', 'system');
+      addConsoleLine('ERROR', 'Microphone access is not supported on this device.', 'system');
       return false;
     }
     try {
@@ -92,6 +103,20 @@ const App: React.FC = () => {
         const response = await fetch(`${backendApiUrl}/health`);
         if (!response.ok) throw new Error('Health check failed');
         setBackendStatus('connected');
+        const configResponse = await fetchServiceConfig(backendApiUrl);
+        if (configResponse) {
+          setServiceConfig(configResponse);
+          if (!hasAutoConfiguredRef.current) {
+            setConfig(prev => ({
+              ...prev,
+              forwardingNumber: configResponse.swireit.forwardingNumber ?? prev.forwardingNumber,
+              transcriptionEngine: configResponse.swireit.enabled ? 'Swireit Voice' : prev.transcriptionEngine,
+              orchestrationEngine: configResponse.services.anythingllm ? 'AnythingLLM' : prev.orchestrationEngine,
+              speechSynthesisEngine: configResponse.services.ollama ? 'Ollama' : prev.speechSynthesisEngine
+            }));
+            hasAutoConfiguredRef.current = true;
+          }
+        }
       } catch (error) {
         console.error('Backend health check failed', error);
         setBackendStatus('error');
@@ -99,6 +124,27 @@ const App: React.FC = () => {
     };
     checkBackend();
   }, [backendApiUrl]);
+
+  useEffect(() => {
+    if (updateCheckRef.current) return;
+    updateCheckRef.current = true;
+    const updateUrl = process.env.AISEC_UPDATE_URL;
+    if (!updateUrl) return;
+    const checkForUpdates = async () => {
+      try {
+        const response = await fetch(updateUrl);
+        if (!response.ok) return;
+        const payload = await response.json();
+        const version = payload?.version;
+        const notes = payload?.notes;
+        if (!version || version === '0.0.0') return;
+        addConsoleLine('UPDATE', `Update available: v${version}${notes ? ` - ${notes}` : ''}`, 'info');
+      } catch (error) {
+        console.warn('Update check failed', error);
+      }
+    };
+    checkForUpdates();
+  }, [addConsoleLine]);
 
   useEffect(() => {
     requestMicrophonePermission();
@@ -119,6 +165,39 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('ai_sec_config', JSON.stringify(config));
   }, [config]);
+
+  useEffect(() => {
+    memoryEnabledRef.current = config.memoryEnabled;
+  }, [config.memoryEnabled]);
+
+  useEffect(() => {
+    memorySummaryRef.current = config.memorySummary;
+  }, [config.memorySummary]);
+
+  const memorySnapshot = useMemo(() => {
+    const memoryLines = transcription
+      .filter(line => line.type === 'message')
+      .slice(-MAX_MEMORY_MESSAGES);
+    const summary = memoryLines
+      .map(line => line.text)
+      .join(' | ')
+      .trim();
+    const signature = summary.replace(/\s+/g, ' ').trim();
+    return { summary, signature };
+  }, [transcription]);
+
+  const { summary: memorySummaryValue, signature: memorySignatureValue } = memorySnapshot;
+
+  useEffect(() => {
+    if (!memoryEnabledRef.current || !memorySummaryValue) return;
+    if (memorySignatureValue === memorySignatureRef.current) return;
+    memorySignatureRef.current = memorySignatureValue;
+    setConfig(prev => (
+      prev.memorySummary === memorySummaryValue
+        ? prev
+        : { ...prev, memorySummary: memorySummaryValue }
+    ));
+  }, [memorySignatureValue, memorySummaryValue]);
 
   // Scroll console to bottom
   useEffect(() => {
@@ -302,6 +381,10 @@ const App: React.FC = () => {
             setActiveCallId(payload.callId);
             setTranscription([]);
             setStatus(CallStatus.SCREENING);
+            if (memoryEnabledRef.current && memorySummaryRef.current) {
+              const formattedMemory = memorySummaryRef.current.replace(/\s*\|\s*/g, '; ');
+              addConsoleLine('SYSTEM', `Memory recall: ${formattedMemory}`, 'info');
+            }
             addConsoleLine('SYSTEM', `Incoming call from ${matchedContact?.name || callerNumber}${matchedContact?.isVip ? ' [VIP]' : ''}`, 'system');
             addConsoleLine('SYSTEM', 'AI Secretary initializing...', 'info');
             addLog({
@@ -428,7 +511,7 @@ const App: React.FC = () => {
     const Recognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!Recognition) {
       setWakeStatus('error');
-      addConsoleLine('ERROR', 'Speech recognition not supported in this browser.', 'system');
+      addConsoleLine('ERROR', 'Speech recognition is not supported on this device.', 'system');
       return;
     }
     const recognition = new Recognition();
@@ -513,8 +596,39 @@ const App: React.FC = () => {
                     <input type="text" value={config.ownerName} onChange={(e) => setConfig({...config, ownerName: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Redirect Destination</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">AI Screening Number</label>
+                    <input
+                      type="text"
+                      value={serviceConfig?.swireit.screeningNumber ?? 'Not configured'}
+                      readOnly
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Forward Destination</label>
                     <input type="text" value={config.forwardingNumber} onChange={(e) => setConfig({...config, forwardingNumber: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Persistent Memory</label>
+                    <div className="flex items-center justify-between bg-slate-900 border border-slate-700 rounded-xl p-3">
+                      <span className="text-[10px] text-slate-400 uppercase tracking-widest">
+                        {config.memoryEnabled ? 'Enabled' : 'Disabled'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setConfig({ ...config, memoryEnabled: !config.memoryEnabled })}
+                        className={`w-12 h-6 rounded-full transition-all relative ${config.memoryEnabled ? 'bg-indigo-600' : 'bg-slate-700'}`}
+                      >
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${config.memoryEnabled ? 'left-7' : 'left-1'}`}></div>
+                      </button>
+                    </div>
+                    <textarea
+                      value={config.memorySummary}
+                      onChange={(e) => setConfig({ ...config, memorySummary: e.target.value })}
+                      placeholder="Memory summary saved locally."
+                      rows={3}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                    />
                   </div>
                 </div>
               </section>
@@ -643,10 +757,20 @@ const App: React.FC = () => {
                        <div className="space-y-2">
                           <p className="font-black uppercase tracking-[0.2em] text-slate-500">AI Secretary Ready</p>
                          <p className="text-[10px] max-w-xs text-slate-600">
-                          {backendStatus === 'connected'
-                            ? `Backend online. Wake word "${config.wakeName}" listening: ${wakeStatus === 'listening' ? 'on' : 'off'}.`
-                            : 'Backend offline. Configure BACKEND_API_URL to start.'}
-                        </p>
+                           {backendStatus === 'connected'
+                             ? `Backend online. Wake word "${config.wakeName}" listening: ${wakeStatus === 'listening' ? 'on' : 'off'}.`
+                             : 'Backend offline. Configure BACKEND_API_URL to start.'}
+                         </p>
+                         {backendStatus === 'connected' && serviceConfig && !serviceConfig.swireit.enabled && (
+                           <p className="text-[10px] max-w-xs text-amber-400 uppercase tracking-widest">
+                           Warning: Swireit integration unavailable. Contact your administrator.
+                         </p>
+                         )}
+                         {backendStatus === 'connected' && serviceConfig && !serviceConfig.swireit.forwardingNumber && (
+                           <p className="text-[10px] max-w-xs text-amber-400 uppercase tracking-widest">
+                             Warning: call forwarding unavailable. Contact your administrator.
+                           </p>
+                         )}
                        </div>
                        <button 
                          onClick={startCall} 
@@ -755,10 +879,33 @@ const App: React.FC = () => {
             {/* Side Drawer: History & Contacts */}
             <div className="w-full lg:w-[400px] flex flex-col gap-6 shrink-0 h-full overflow-hidden">
               <section className="bg-slate-800/50 border border-slate-700 rounded-[2.5rem] flex flex-col flex-1 shadow-2xl overflow-hidden">
-                <div className="p-2 border-b border-slate-700 grid grid-cols-2 gap-2 bg-slate-900/40">
-                  <button onClick={() => setActiveTab('history')} className={`p-4 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'history' ? 'bg-slate-800 text-indigo-400 shadow-md' : 'text-slate-500 hover:text-slate-300'}`}>Call Vault</button>
-                  <button onClick={() => setActiveTab('contacts')} className={`p-4 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'contacts' ? 'bg-slate-800 text-indigo-400 shadow-md' : 'text-slate-500 hover:text-slate-300'}`}>Directory</button>
-                </div>
+                 <div className="p-2 border-b border-slate-700 grid grid-cols-2 gap-2 bg-slate-900/40">
+                   <button onClick={() => setActiveTab('history')} className={`p-4 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'history' ? 'bg-slate-800 text-indigo-400 shadow-md' : 'text-slate-500 hover:text-slate-300'}`}>Call Vault</button>
+                   <button onClick={() => setActiveTab('contacts')} className={`p-4 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'contacts' ? 'bg-slate-800 text-indigo-400 shadow-md' : 'text-slate-500 hover:text-slate-300'}`}>Directory</button>
+                 </div>
+                 {serviceConfig && (
+                   <div className="px-5 py-4 border-b border-slate-800 bg-slate-900/30 space-y-2">
+                     <div className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em]">Integration Status</div>
+                     <div className="grid grid-cols-2 gap-2 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                       <div className="flex items-center gap-2">
+                         <span className={`w-2 h-2 rounded-full ${serviceConfig.swireit.enabled ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+                         Swireit
+                       </div>
+                       <div className="flex items-center gap-2">
+                         <span className={`w-2 h-2 rounded-full ${serviceConfig.aisec.configured ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+                         AISec
+                       </div>
+                       <div className="flex items-center gap-2">
+                         <span className={`w-2 h-2 rounded-full ${serviceConfig.services.anythingllm ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+                         AnythingLLM
+                       </div>
+                       <div className="flex items-center gap-2">
+                         <span className={`w-2 h-2 rounded-full ${serviceConfig.services.ollama ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+                         Ollama
+                       </div>
+                     </div>
+                   </div>
+                 )}
                 
                 <div className="p-4 border-b border-slate-800">
                   <div className="relative">
@@ -848,12 +995,14 @@ const App: React.FC = () => {
             <div className="flex items-center gap-2"><div className={`w-2 h-2 rounded-full shadow-lg ${status === CallStatus.IDLE ? 'bg-green-500 shadow-green-500/50' : 'bg-red-500 animate-pulse shadow-red-500/50'}`}></div><span>Live Engine</span></div>
             <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-indigo-500 shadow-indigo-500/50"></div><span>Encryption Active</span></div>
           </div>
-          <div className="flex items-center gap-3">
-             <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">v2.5.0-flash</span>
-              <div className="px-3 py-1 bg-slate-800 rounded-full border border-slate-700">
-                 <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Swireit Stack</span>
-              </div>
-          </div>
+           <div className="flex items-center gap-3">
+              <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">v2.5.0-flash</span>
+               <div className="px-3 py-1 bg-slate-800 rounded-full border border-slate-700">
+                  <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">
+                    {serviceConfig?.swireit.enabled ? 'Swireit Linked' : 'Swireit Offline'}
+                  </span>
+               </div>
+           </div>
         </div>
       </footer>
 

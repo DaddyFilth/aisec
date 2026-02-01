@@ -5,6 +5,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import multer from 'multer';
 import swireit from './swireit-client.mjs';
+import { parseCallRoutingChoice } from './swireit-routing.mjs';
 import { WebSocketServer } from 'ws';
 import { callOllama } from './ollama-client.mjs';
 import { fetchChatHistory, sendChatMessage } from './anythingllm-client.mjs';
@@ -41,6 +42,9 @@ const SWIREIT_PROJECT_ID = process.env.SWIREIT_PROJECT_ID;
 const SWIREIT_API_TOKEN = process.env.SWIREIT_API_TOKEN;
 const SWIREIT_SPACE_URL = process.env.SWIREIT_SPACE_URL;
 const SWIREIT_CALLER_ID = process.env.SWIREIT_CALLER_ID;
+const SWIREIT_SCREENING_NUMBER = process.env.SWIREIT_SCREENING_NUMBER;
+const SWIREIT_FORWARD_NUMBER = process.env.SWIREIT_FORWARD_NUMBER;
+const SWIREIT_ROUTE_TIMEOUT_SECONDS = process.env.SWIREIT_ROUTE_TIMEOUT_SECONDS || '8';
 const OLLAMA_API_URL = process.env.OLLAMA_API_URL;
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.1';
 const ANYTHINGLLM_API_URL = process.env.ANYTHINGLLM_API_URL;
@@ -97,9 +101,15 @@ const validatePhone = (value) => PHONE_REGEX.test(value || '');
 
 const validateCallId = (value) => /^(CA[0-9a-f]{32}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.test(value || '');
 
-if (!SWIREIT_PROJECT_ID || !SWIREIT_API_TOKEN || !SWIREIT_SPACE_URL) {
-  console.warn('Swireit credentials are not configured. Set SWIREIT_PROJECT_ID, SWIREIT_API_TOKEN, and SWIREIT_SPACE_URL.');
-}
+  if (!SWIREIT_PROJECT_ID || !SWIREIT_API_TOKEN || !SWIREIT_SPACE_URL) {
+    console.warn('Swireit credentials are not configured. Set SWIREIT_PROJECT_ID, SWIREIT_API_TOKEN, and SWIREIT_SPACE_URL.');
+  }
+  if (SWIREIT_SCREENING_NUMBER && !validatePhone(SWIREIT_SCREENING_NUMBER)) {
+    console.warn('Swireit screening number is invalid. Provide a valid E.164 SWIREIT_SCREENING_NUMBER.');
+  }
+  if (SWIREIT_FORWARD_NUMBER && !validatePhone(SWIREIT_FORWARD_NUMBER)) {
+    console.warn('Swireit forward number is invalid. Provide a valid E.164 SWIREIT_FORWARD_NUMBER.');
+  }
 
 const swireitClient = SWIREIT_PROJECT_ID && SWIREIT_API_TOKEN && SWIREIT_SPACE_URL
   ? swireit.createClient(SWIREIT_PROJECT_ID, SWIREIT_API_TOKEN, { swireitSpaceUrl: SWIREIT_SPACE_URL })
@@ -148,22 +158,93 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
 
+app.get('/api/config', (_req, res) => {
+  res.json({
+    swireit: {
+      enabled: Boolean(swireitClient),
+      projectIdConfigured: Boolean(SWIREIT_PROJECT_ID),
+      apiTokenConfigured: Boolean(SWIREIT_API_TOKEN),
+      spaceUrlConfigured: Boolean(SWIREIT_SPACE_URL),
+      callerIdConfigured: Boolean(SWIREIT_CALLER_ID),
+      twimlUrlConfigured: Boolean(SWIREIT_TWIML_URL),
+      screeningNumber: SWIREIT_SCREENING_NUMBER ?? null,
+      forwardingNumber: SWIREIT_FORWARD_NUMBER ?? null
+    },
+    aisec: {
+      url: AISEC_API_URL,
+      configured: Boolean(AISEC_API_KEY)
+    },
+    services: {
+      ollama: Boolean(OLLAMA_API_URL),
+      anythingllm: Boolean(ANYTHINGLLM_API_URL && ANYTHINGLLM_API_KEY && ANYTHINGLLM_WORKSPACE_SLUG)
+    }
+  });
+});
+
 app.post('/swireit/voice', validateSwireitRequest, async (req, res) => {
   const response = swireit.createVoiceResponse();
   const caller = req.body.From || 'Unknown caller';
   const callId = req.body.CallId || req.body.CallID || req.body.CallSid || `call-${Date.now()}`;
   broadcast({ type: 'call.start', callId, from: caller });
+  const forwardMessage = SWIREIT_FORWARD_NUMBER && validatePhone(SWIREIT_FORWARD_NUMBER)
+    ? ` to ${SWIREIT_FORWARD_NUMBER}`
+    : '';
+  response.gather({
+    input: 'speech dtmf',
+    action: '/swireit/voice/route',
+    method: 'POST',
+    speechTimeout: 'auto',
+    language: 'en-US',
+    hints: 'one, two, 1, 2',
+    numDigits: 1,
+    timeout: SWIREIT_ROUTE_TIMEOUT_SECONDS
+  }).say(`Hello. Say or press 1 for AI screening, or 2 to forward${forwardMessage}.`);
+  response.say('We did not receive a response. Goodbye.');
+  response.hangup();
+  res.type('text/xml');
+  res.send(response.toString());
+});
+
+app.post('/swireit/voice/route', validateSwireitRequest, async (req, res) => {
+  const response = swireit.createVoiceResponse();
+  const callId = req.body.CallId || req.body.CallID || req.body.CallSid || `call-${Date.now()}`;
+  const choice = parseCallRoutingChoice(req.body.Digits, req.body.SpeechResult);
+  if (choice === '2') {
+    if (!SWIREIT_FORWARD_NUMBER || !validatePhone(SWIREIT_FORWARD_NUMBER)) {
+      response.gather({
+        input: 'speech',
+        action: '/swireit/voice/handle',
+        method: 'POST',
+        speechTimeout: 'auto',
+        language: 'en-US'
+      }).say('Forwarding is not configured. Please tell me how I can help.');
+      response.say('We did not receive a response. Goodbye.');
+      response.hangup();
+    } else {
+      broadcast({ type: 'call.forwarding', callId, to: SWIREIT_FORWARD_NUMBER });
+      response.say('Connecting you now.');
+      response.dial(SWIREIT_FORWARD_NUMBER);
+    }
+    res.type('text/xml');
+    return res.send(response.toString());
+  }
+  if (choice !== '1') {
+    response.say('Please say or press 1 or 2.');
+    response.redirect('/swireit/voice');
+    res.type('text/xml');
+    return res.send(response.toString());
+  }
   response.gather({
     input: 'speech',
     action: '/swireit/voice/handle',
     method: 'POST',
     speechTimeout: 'auto',
     language: 'en-US'
-  }).say(`Hello. Please tell me how I can help. This call is being handled by AI secretary.`);
+  }).say('Please tell me how I can help. This call is being handled by AI secretary.');
   response.say('We did not receive a response. Goodbye.');
   response.hangup();
   res.type('text/xml');
-  res.send(response.toString());
+  return res.send(response.toString());
 });
 
 app.post('/swireit/voice/handle', validateSwireitRequest, async (req, res) => {

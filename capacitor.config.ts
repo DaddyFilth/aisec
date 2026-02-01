@@ -1,12 +1,13 @@
 import type { CapacitorConfig } from '@capacitor/cli';
-
 const config: CapacitorConfig = {
   appId: 'com.aisec.app',
   appName: 'AI Secretary',
   webDir: 'dist',
   server: {
     androidScheme: 'https',
-    cleartext: true
+    cleartext: true,
+    // Remote asset hosting requires network connectivity at runtime.
+    ...(process.env.AISEC_REMOTE_ASSETS_URL ? { url: process.env.AISEC_REMOTE_ASSETS_URL } : {})
   },
   android: {
     allowMixedContent: true,

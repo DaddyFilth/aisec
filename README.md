@@ -46,7 +46,8 @@ AI Secretary is an intelligent call screening application that uses Swireit Prog
 - **Audio Processing**: Configurable noise suppression, echo cancellation, and auto-gain control
 - **Language Support**: Multiple language focus options (English US/UK, Spanish, French, German, Japanese, Korean)
 - **Local Storage**: Persistent data storage for contacts, logs, and settings
-- **Cross-Platform**: Works on desktop browsers and Android devices (via APK)
+- **Persistent Memory**: Optional memory summary stored in local storage
+- **Cross-Platform**: Works on desktop web and Android devices (via APK)
 - **Responsive Design**: Optimized for desktop and mobile screens
 
 ## 🎬 Demo
@@ -59,8 +60,8 @@ View your app in AI Studio: https://ai.studio/apps/drive/129UWr-WSACDH_B1WBLuIyo
 
 - **Node.js** (v18 or higher recommended)
 - **npm** or **yarn**
-- **Service Endpoints** - Backend, AnythingLLM, and Ollama endpoints
-- **Microphone access** in your browser
+- **Service Endpoints** - Backend, AISec, AnythingLLM, and Ollama endpoints
+- **Microphone access** on your device
 
 ### Setup Steps
 
@@ -91,7 +92,9 @@ Edit `.env.local` and add your service endpoints:
 ```env
 BACKEND_API_URL=http://localhost:8080
 BACKEND_WS_URL=ws://localhost:8080
-AISEC_API_URL=http://localhost:3000/api/ai/process
+AISEC_UPDATE_URL=https://updates.example.com/aisec.json
+AISEC_REMOTE_ASSETS_URL=https://assets.example.com/aisec
+AISEC_API_URL=http://localhost:8080/api/ai/process
 AISEC_API_KEY=your_aisec_api_key
 AISEC_TIMEOUT_MS=5000
 OLLAMA_API_URL=http://localhost:11434
@@ -103,6 +106,8 @@ SWIREIT_PROJECT_ID=your_swireit_project_id
 SWIREIT_API_TOKEN=your_swireit_api_token
 SWIREIT_SPACE_URL=your-space.swireit.com
 SWIREIT_CALLER_ID=+15551231234
+SWIREIT_SCREENING_NUMBER=+15551230001
+SWIREIT_FORWARD_NUMBER=+15551230002
 SWIREIT_TWIML_URL=your_swireit_twiml_url
 SWIREIT_VALIDATE_WEBHOOKS=true
 ALLOWED_ORIGINS=*
@@ -118,9 +123,28 @@ ALLOWED_ORIGINS=*
    npm run dev
    ```
 
-5. **Open in browser**
+5. **Launch the UI**
    
-   Navigate to `http://localhost:5173` (or the port shown in your terminal)
+    Open the app in your preferred client (web or Android). The UI auto-detects Swireit + AISec status from the backend.
+
+### Minimal APK + Remote Assets
+
+To keep the APK size minimal, you can point the Android build to a remote asset host. When `AISEC_REMOTE_ASSETS_URL` is set, Capacitor loads the web bundle from that URL after install. Note that Capacitor's `server.url` mode is primarily intended for remote hosting scenarios and requires network access at runtime, so the app will not work offline without a bundled web build.
+
+```env
+AISEC_REMOTE_ASSETS_URL=https://assets.example.com/aisec
+```
+
+### Automatic Update Checks
+
+Set `AISEC_UPDATE_URL` to a hosted JSON with the latest version details. On launch, the console will show an update notice.
+
+```json
+{
+  "version": "1.2.3",
+  "notes": "Bug fixes and UI refinements"
+}
+```
 
 ## 📱 Android APK Deployment
 
@@ -212,7 +236,7 @@ npm run android:build       # Build signed release APK
 ### First Time Setup
 
 1. **Grant Microphone Permission**: On first launch, click **"Enable Call Screening"** 
-2. Your browser or device will prompt for microphone access - click **Allow/Grant**
+2. Your device will prompt for microphone access - click **Allow/Grant**
 3. Once permission is granted, the button will change to **"Start AI Secretary"**
 
 ### Starting Call Screening
@@ -260,7 +284,7 @@ When the AI completes screening, you'll see three action buttons:
 
 #### Granting Permissions
 - **First Time**: Click "Enable Call Screening" and allow microphone access when prompted
-- **Web Browser**: Click "Allow" in the browser permission dialog
+- **Desktop/Web**: Click "Allow" in the permission dialog
 - **Android**: The system will request microphone permission - tap "Allow"
 
 #### If Permission Denied
