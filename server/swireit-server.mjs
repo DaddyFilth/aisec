@@ -179,7 +179,9 @@ app.post('/swireit/voice', validateSwireitRequest, async (req, res) => {
   const caller = req.body.From || 'Unknown caller';
   const callId = req.body.CallId || req.body.CallID || req.body.CallSid || `call-${Date.now()}`;
   broadcast({ type: 'call.start', callId, from: caller });
-  const forwardMessage = SWIREIT_FORWARD_NUMBER ? ` to ${SWIREIT_FORWARD_NUMBER}.` : '.';
+  const forwardMessage = SWIREIT_FORWARD_NUMBER
+    ? ` to ${SWIREIT_FORWARD_NUMBER}`
+    : '';
   response.gather({
     input: 'speech dtmf',
     action: '/swireit/voice/route',
@@ -188,7 +190,7 @@ app.post('/swireit/voice', validateSwireitRequest, async (req, res) => {
     language: 'en-US',
     hints: 'one, two, 1, 2',
     numDigits: 1
-  }).say(`Hello. Say or press 1 for AI screening, or 2 to forward${forwardMessage}`);
+  }).say(`Hello. Say or press 1 for AI screening, or 2 to forward${forwardMessage}.`);
   response.say('We did not receive a response. Goodbye.');
   response.hangup();
   res.type('text/xml');

@@ -100,9 +100,9 @@ const App: React.FC = () => {
           setConfig(prev => ({
             ...prev,
             forwardingNumber: configResponse.swireit.forwardingNumber ?? prev.forwardingNumber,
-            transcriptionEngine: configResponse.swireit.enabled ? 'Swireit Voice' : 'Unavailable',
-            orchestrationEngine: configResponse.services.anythingllm ? 'AnythingLLM' : 'Unavailable',
-            speechSynthesisEngine: configResponse.services.ollama ? 'Ollama' : 'Unavailable'
+            transcriptionEngine: configResponse.swireit.enabled ? 'Swireit Voice' : 'Not configured',
+            orchestrationEngine: configResponse.services.anythingllm ? 'AnythingLLM' : 'Not configured',
+            speechSynthesisEngine: configResponse.services.ollama ? 'Ollama' : 'Not configured'
           }));
         }
       } catch (error) {
@@ -529,7 +529,7 @@ const App: React.FC = () => {
                     <label className="text-[10px] font-bold text-slate-500 uppercase">Screening Number</label>
                     <input
                       type="text"
-                      value={serviceConfig?.swireit.screeningNumber ?? 'Configure SWIREIT_SCREENING_NUMBER'}
+                      value={serviceConfig?.swireit.screeningNumber ?? 'Not configured'}
                       readOnly
                       className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                     />
