@@ -61,7 +61,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/129UWr-WSACDH_B1WBLuIyo
 - **Node.js** (v18 or higher recommended)
 - **npm** or **yarn**
 - **Service Endpoints** - Backend, AISec, AnythingLLM, and Ollama endpoints
-- **Microphone access** on your device
+- **Microphone access** on your device (not required for the APK build)
 
 ### Setup Steps
 
@@ -106,7 +106,7 @@ SWIREIT_PROJECT_ID=your_swireit_project_id
 SWIREIT_API_TOKEN=your_swireit_api_token
 SWIREIT_SPACE_URL=your-space.swireit.com
 SWIREIT_CALLER_ID=+15551231234
-SWIREIT_SCREENING_NUMBER=+15551230001
+SWIREIT_SCREENING_NUMBER=+14059832333
 SWIREIT_FORWARD_NUMBER=+15551230002
 SWIREIT_TWIML_URL=your_swireit_twiml_url
 SWIREIT_VALIDATE_WEBHOOKS=true
@@ -117,6 +117,8 @@ ALLOWED_ORIGINS=*
    ```bash
    node server/swireit-server.mjs
    ```
+
+   The backend listens for Swireit calls routed to **+1 (405) 983-2333**. Ensure your Swireit screening number is configured to this value so the APK can monitor incoming calls.
 
 5. **Start the development server (auto-opens the UI)**
    ```bash
@@ -235,16 +237,15 @@ npm run android:build       # Build signed release APK
 
 ### First Time Setup
 
-1. **Grant Microphone Permission**: On first launch, click **"Enable Call Screening"** 
-2. Your device will prompt for microphone access - click **Allow/Grant**
-3. Once permission is granted, the button will change to **"Start AI Secretary"**
+1. **Start the backend** and ensure Swireit routes calls to **+1 (405) 983-2333**
+2. **Launch the app** and wait for the backend status to show as online
 
 ### Starting Call Screening
 
 1. Click **"Start AI Secretary"** to activate call screening mode
 2. Configure your Swireit webhook to point to `POST /swireit/voice` on the backend and set `PUBLIC_URL`
 3. Set `BACKEND_API_KEY` in both backend and frontend environments for authenticated API access
-4. Speak the wake word to open the console and monitor live call transcripts (default: "Secretary")
+4. Monitor live call transcripts in the console once calls arrive
 5. The AI Secretary will greet callers and ask for their name and purpose
 6. Watch the real-time transcription in the console as the conversation unfolds
 
@@ -282,20 +283,7 @@ When the AI completes screening, you'll see three action buttons:
 
 ### Permission Management
 
-#### Granting Permissions
-- **First Time**: Click "Enable Call Screening" and allow microphone access when prompted
-- **Desktop/Web**: Click "Allow" in the permission dialog
-- **Android**: The system will request microphone permission - tap "Allow"
-
-#### If Permission Denied
-- **Web**: Click the lock icon in the address bar → Site Settings → Microphone → Allow
-- **Android**: Go to Settings → Apps → AI Secretary → Permissions → Enable Microphone
-- After granting in settings, return to the app and click "Grant Microphone Access"
-
-#### Permission Status Indicators
-- ✅ **Ready**: Green button shows "Start AI Secretary" - ready to screen calls
-- ⚠️ **Permission Needed**: Blue button shows "Enable Call Screening" - click to request
-- ❌ **Access Denied**: Red button shows "Grant Microphone Access" - permission denied, check settings
+The APK does not request microphone permission. If you see a prompt, remove the old app and install the latest APK build.
 
 ## ⚙️ Configuration
 

@@ -1,15 +1,12 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { CallStatus, CallLog, SecretaryConfig, Contact, ServiceConfig } from './types';
-import { Capacitor } from '@capacitor/core';
 import { fetchServiceConfig } from './services/configService';
 
 const App: React.FC = () => {
   // --- State ---
   const [status, setStatus] = useState<CallStatus>(CallStatus.IDLE);
-  const [microphonePermission, setMicrophonePermission] = useState<'granted' | 'denied' | 'prompt'>('prompt');
   const [backendStatus, setBackendStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
-  const [wakeStatus, setWakeStatus] = useState<'idle' | 'listening' | 'triggered' | 'error'>('idle');
   const [config, setConfig] = useState<SecretaryConfig>({
     ownerName: 'Alex',
     forwardingNumber: '+1 (555) 012-3456',
@@ -41,10 +38,10 @@ const App: React.FC = () => {
 
   // --- Refs for Audio & Session ---
   const wsRef = useRef<WebSocket | null>(null);
-  const wakeRecognitionRef = useRef<any>(null);
   const consoleEndRef = useRef<HTMLDivElement>(null);
   const backendApiUrl = process.env.BACKEND_API_URL;
   const backendWsUrl = process.env.BACKEND_WS_URL || (backendApiUrl ? backendApiUrl.replace(/^http/, 'ws') : '');
+  const monitoringNumber = '+1 (405) 983-2333';
   // Keep memory summary focused by using the most recent conversational lines.
   const MAX_MEMORY_MESSAGES = 6;
   const memorySignatureRef = useRef('');
@@ -57,26 +54,6 @@ const App: React.FC = () => {
     const timestamp = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
     setTranscription(prev => [...prev, { timestamp, role, text, type }]);
   }, []);
-
-  const requestMicrophonePermission = useCallback(async (): Promise<boolean> => {
-    if (!navigator.mediaDevices?.getUserMedia) {
-      addConsoleLine('ERROR', 'Microphone access is not supported on this device.', 'system');
-      return false;
-    }
-    try {
-      if (Capacitor.isNativePlatform()) {
-        addConsoleLine('SYSTEM', 'Requesting microphone access...', 'info');
-      }
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(track => track.stop());
-      setMicrophonePermission('granted');
-      return true;
-    } catch (error) {
-      setMicrophonePermission('denied');
-      addConsoleLine('ERROR', 'Microphone permission denied.', 'system');
-      return false;
-    }
-  }, [addConsoleLine]);
 
   // --- Persistence ---
   useEffect(() => {
@@ -112,7 +89,10 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!backendApiUrl) return;
+    let inFlight = false;
     const checkBackend = async () => {
+      if (inFlight) return;
+      inFlight = true;
       setBackendStatus('connecting');
       try {
         const response = await fetch(`${backendApiUrl}/health`);
@@ -135,9 +115,13 @@ const App: React.FC = () => {
       } catch (error) {
         console.error('Backend health check failed', error);
         setBackendStatus('error');
+      } finally {
+        inFlight = false;
       }
     };
     checkBackend();
+    const intervalId = window.setInterval(checkBackend, 30000);
+    return () => window.clearInterval(intervalId);
   }, [backendApiUrl]);
 
   useEffect(() => {
@@ -160,10 +144,6 @@ const App: React.FC = () => {
     };
     checkForUpdates();
   }, [addConsoleLine]);
-
-  useEffect(() => {
-    requestMicrophonePermission();
-  }, [requestMicrophonePermission]);
 
   useEffect(() => {
     localStorage.setItem('ai_sec_contacts', JSON.stringify(contacts));
@@ -380,12 +360,6 @@ const App: React.FC = () => {
   }, [endSession, addConsoleLine]);
 
   const startCall = useCallback(async () => {
-    if (microphonePermission !== 'granted') {
-      const permissionGranted = await requestMicrophonePermission();
-      if (!permissionGranted) {
-        return;
-      }
-    }
     if (!backendApiUrl) {
       addConsoleLine('ERROR', 'Backend API is not configured. Set BACKEND_API_URL.', 'system');
       return;
@@ -473,7 +447,7 @@ const App: React.FC = () => {
       console.error("Failed to start call:", err);
       addConsoleLine('ERROR', 'Failed to connect to backend.', 'system');
     }
-  }, [microphonePermission, requestMicrophonePermission, backendApiUrl, backendWsUrl, addConsoleLine, blockedNumbers, contacts, activeCallId, addLog]);
+  }, [backendApiUrl, backendWsUrl, addConsoleLine, blockedNumbers, contacts, activeCallId, addLog]);
 
   const handleAnswer = useCallback(async () => {
     if (!backendApiUrl || !activeCallId) {
@@ -543,46 +517,6 @@ const App: React.FC = () => {
         addConsoleLine('ERROR', 'Failed to forward call.', 'system');
       });
   }, [backendApiUrl, activeCallId, activeCallLog, config.forwardingNumber, updateActiveLog, addConsoleLine]);
-
-  useEffect(() => {
-    if (microphonePermission !== 'granted' || status !== CallStatus.IDLE) return;
-    const Recognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!Recognition) {
-      setWakeStatus('error');
-      addConsoleLine('ERROR', 'Speech recognition is not supported on this device.', 'system');
-      return;
-    }
-    const recognition = new Recognition();
-    recognition.continuous = true;
-    recognition.interimResults = false;
-    recognition.lang = config.languageFocus;
-    recognition.onstart = () => setWakeStatus('listening');
-    recognition.onerror = () => setWakeStatus('error');
-    recognition.onresult = (event: any) => {
-      const lastResult = event.results[event.results.length - 1];
-      const transcript = lastResult[0]?.transcript?.toLowerCase() || '';
-      if (transcript.includes(config.wakeName.toLowerCase())) {
-        setWakeStatus('triggered');
-        addConsoleLine('SYSTEM', `Wake word "${config.wakeName}" detected. Starting call flow.`, 'info');
-        if (backendStatus === 'connected') {
-          startCall();
-        } else {
-          addConsoleLine('SYSTEM', 'Backend not ready. Wake word ignored.', 'info');
-        }
-      }
-    };
-    recognition.onend = () => {
-      if (wakeStatus !== 'error') {
-        recognition.start();
-      }
-    };
-    wakeRecognitionRef.current = recognition;
-    recognition.start();
-    return () => {
-      recognition.stop();
-      wakeRecognitionRef.current = null;
-    };
-  }, [microphonePermission, config.wakeName, config.languageFocus, addConsoleLine, startCall, wakeStatus, status, backendStatus]);
 
   useEffect(() => {
     if (activeCallId) {
@@ -795,9 +729,9 @@ const App: React.FC = () => {
                        <div className="space-y-2">
                           <p className="font-black uppercase tracking-[0.2em] text-slate-500">AI Secretary Ready</p>
                          <p className="text-[10px] max-w-xs text-slate-600">
-                           {backendStatus === 'connected'
-                             ? `Backend online. Wake word "${config.wakeName}" listening: ${wakeStatus === 'listening' ? 'on' : 'off'}.`
-                             : 'Backend offline. Configure BACKEND_API_URL to start.'}
+                            {backendStatus === 'connected'
+                              ? `Backend online. Monitoring ${monitoringNumber} for incoming calls.`
+                              : `Backend offline. Start the backend to monitor ${monitoringNumber}.`}
                          </p>
                          {backendStatus === 'connected' && serviceConfig && !serviceConfig.swireit.enabled && (
                            <p className="text-[10px] max-w-xs text-amber-400 uppercase tracking-widest">
