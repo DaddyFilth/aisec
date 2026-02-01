@@ -197,6 +197,12 @@ async function processWithAI(transcript: string, context: any) {
   return processWithRules(transcript);
 }
 
+const DEFAULT_AISEC_TIMEOUT_MS = 5000;
+const DEFAULT_PORT = 3000;
+const MAX_PORT = 65535;
+const IPV4_ALL_INTERFACES = '0.0.0.0';
+const IPV6_ALL_INTERFACES = '::';
+
 async function processWithAISec(transcript: string, context: any) {
   const aisecUrl = process.env.AISEC_API_URL;
   if (!aisecUrl) {
@@ -213,7 +219,7 @@ async function processWithAISec(transcript: string, context: any) {
 
   const controller = new AbortController();
   const parsedTimeout = Number(process.env.AISEC_TIMEOUT_MS);
-  const timeoutMs = Number.isFinite(parsedTimeout) && parsedTimeout > 0 ? parsedTimeout : 5000;
+  const timeoutMs = Number.isFinite(parsedTimeout) && parsedTimeout > 0 ? parsedTimeout : DEFAULT_AISEC_TIMEOUT_MS;
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
@@ -298,10 +304,6 @@ function processWithRules(transcript: string) {
   };
 }
 
-const DEFAULT_PORT = 3000;
-const MAX_PORT = 65535;
-const IPV4_ALL_INTERFACES = '0.0.0.0';
-const IPV6_ALL_INTERFACES = '::';
 const PORT = resolvePort(process.env.PORT);
 
 server.on('error', (error) => {

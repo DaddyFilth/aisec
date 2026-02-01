@@ -8,12 +8,12 @@ const App: React.FC = () => {
   // --- State ---
   const [status, setStatus] = useState<CallStatus>(CallStatus.IDLE);
   const [microphonePermission, setMicrophonePermission] = useState<'granted' | 'denied' | 'prompt'>('prompt');
-  const metaEnv = import.meta.env as Record<string, string | undefined>;
+  const importMetaEnv = import.meta.env as Record<string, string | undefined>;
   const backendApiStorageKey = 'ai_sec_backend_api_url';
   const exampleBackendApiUrl = 'https://local.host:8080';
-  const backendApiEnvUrl = process.env.BACKEND_API_URL || metaEnv.VITE_BACKEND_API_URL || '';
-  const backendWsEnvUrl = process.env.BACKEND_WS_URL || metaEnv.VITE_BACKEND_WS_URL;
-  const backendApiKeyEnv = process.env.BACKEND_API_KEY || metaEnv.VITE_BACKEND_API_KEY;
+  const backendApiEnvUrl = process.env.BACKEND_API_URL || importMetaEnv.VITE_BACKEND_API_URL || '';
+  const backendWsEnvUrl = process.env.BACKEND_WS_URL || importMetaEnv.VITE_BACKEND_WS_URL;
+  const backendApiKeyEnv = process.env.BACKEND_API_KEY || importMetaEnv.VITE_BACKEND_API_KEY;
   const [backendStatus, setBackendStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
   const [backendApiUrl, setBackendApiUrl] = useState(() =>
     localStorage.getItem(backendApiStorageKey) || backendApiEnvUrl
@@ -56,19 +56,23 @@ const App: React.FC = () => {
   const wsRef = useRef<WebSocket | null>(null);
   const wakeRecognitionRef = useRef<any>(null);
   const consoleEndRef = useRef<HTMLDivElement>(null);
-  const isBackendApiUrlValid = useMemo(() => {
-    if (!backendApiUrl) return true;
+  const parseBackendApiUrl = useCallback((value: string) => {
+    if (!value) return { valid: true, wsUrl: '' };
     try {
-      const parsedUrl = new URL(backendApiUrl);
+      const parsedUrl = new URL(value);
       const isHttp = parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
       const hasHostname = Boolean(parsedUrl.hostname);
-      return isHttp && hasHostname;
+      return {
+        valid: isHttp && hasHostname,
+        wsUrl: parsedUrl.href.replace(/^http/, 'ws')
+      };
     } catch {
-      return false;
+      return { valid: false, wsUrl: '' };
     }
-  }, [backendApiUrl]);
-  const backendWsUrl = backendWsEnvUrl
-    || (backendApiUrl && isBackendApiUrlValid ? backendApiUrl.replace(/^http/, 'ws') : '');
+  }, []);
+  const backendApiUrlState = useMemo(() => parseBackendApiUrl(backendApiUrl), [backendApiUrl, parseBackendApiUrl]);
+  const isBackendApiUrlValid = backendApiUrlState.valid;
+  const backendWsUrl = backendWsEnvUrl || (backendApiUrlState.valid ? backendApiUrlState.wsUrl : '');
   // Keep memory summary focused by using the most recent conversational lines.
   const MAX_MEMORY_MESSAGES = 6;
   const memorySignatureRef = useRef('');
@@ -171,7 +175,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (updateCheckRef.current) return;
     updateCheckRef.current = true;
-    const updateUrl = process.env.AISEC_UPDATE_URL || metaEnv.VITE_AISEC_UPDATE_URL;
+    const updateUrl = process.env.AISEC_UPDATE_URL || importMetaEnv.VITE_AISEC_UPDATE_URL;
     if (!updateUrl) return;
     const checkForUpdates = async () => {
       try {
@@ -693,7 +697,7 @@ const App: React.FC = () => {
                       Used to check backend status and connect calls (e.g., {exampleBackendApiUrl}). Changes apply on the next connection check.
                     </p>
                     {!isBackendApiUrlValid && (
-                      <p id={backendApiUrlErrorId} className="text-[9px] text-amber-400 uppercase tracking-widest" role="alert" aria-live="polite">
+                      <p id={backendApiUrlErrorId} className="text-[9px] text-amber-400 uppercase tracking-widest" role="alert" aria-live="assertive">
                         Enter a valid URL starting with http:// or https://
                       </p>
                     )}
@@ -703,7 +707,7 @@ const App: React.FC = () => {
                     <input type="text" value={config.ownerName} onChange={(e) => setConfig({...config, ownerName: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">AI Screening Number</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Screening Number</label>
                     <input
                       type="text"
                       value={serviceConfig?.swireit.screeningNumber ?? 'Not configured'}
