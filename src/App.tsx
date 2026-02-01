@@ -239,7 +239,10 @@ const App: React.FC = () => {
     );
   }, [contacts, searchQuery]);
 
-  const normalizePhoneNumber = (value: string) => value.replace(/[^\d+]/g, '');
+  const normalizePhoneNumber = (value: string) => {
+    const normalized = value.replace(/[^\d+]/g, '');
+    return /\d/.test(normalized) ? normalized : '';
+  };
 
   const addContact = (name: string, phoneNumber: string, isVip: boolean = false) => {
     if (!name || !phoneNumber) return;

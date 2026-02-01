@@ -40,6 +40,7 @@ describe('parseCallRoutingChoice', () => {
     assert.equal(parseCallRoutingChoice(undefined, 'two'), '2');
     assert.equal(parseCallRoutingChoice(undefined, 'to'), '2');
     assert.equal(parseCallRoutingChoice(undefined, 'press 1'), '1');
+    assert.equal(parseCallRoutingChoice(undefined, 'press2'), '2');
     assert.equal(parseCallRoutingChoice(undefined, 'option two please'), '2');
   });
 

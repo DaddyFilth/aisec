@@ -12,8 +12,8 @@ const command = commandByPlatform[process.platform];
 if (!command) {
   console.log(`Open this URL in your browser: ${url}`);
 } else {
-  const { exec } = require('node:child_process');
-  exec(`${command} ${url}`, (error) => {
+  const { execFile } = require('node:child_process');
+  execFile(command, [url], (error) => {
     if (error) {
       console.log(`Open this URL in your browser: ${url}`);
     }
