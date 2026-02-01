@@ -319,6 +319,9 @@ aisec/
 - `npm run dev` - Start development server
 - `npm run build` - Build for production
 - `npm run preview` - Preview production build
+- `npm run ml:ingest:transcripts` - Upload transcript batches into AnythingLLM
+- `npm run ml:ingest:transcripts:dry` - Parse transcripts without uploading
+- `npm run ml:train:transcripts` - Generate a unigram transcript model JSON file
 
 ### Tech Stack
 
@@ -415,3 +418,7 @@ For security concerns, please review our [Security Policy](SECURITY.md).
 <div align="center">
 Made with ❤️ by the AI Secretary Team
 </div>
+
+## 🤖 Transcript ingestion
+
+Use the transcript ingestion utility to load conversation transcripts and optionally generate a unigram token model for ML workflows. See `docs/TRANSCRIPT_INGESTION.md` for JSON formats and options.

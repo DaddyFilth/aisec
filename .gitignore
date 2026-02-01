@@ -50,3 +50,10 @@ tmp/
 temp/
 *.tmp
 *.bak
+
+# Transcript model output
+/data/
+# Generated models
+/models/
+!models/transcript-unigram-model.sample.json
+
