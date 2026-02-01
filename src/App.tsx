@@ -170,16 +170,16 @@ const App: React.FC = () => {
     const memoryLines = transcription
       .filter(line => line.type === 'message')
       .slice(-MAX_MEMORY_MESSAGES);
-    const signature = memoryLines.map(line => line.text).join('|');
-    if (!signature || signature === memorySignatureRef.current) return;
-    memorySignatureRef.current = signature;
     const summary = memoryLines
       .map(line => line.text)
       .join(' | ')
       .trim();
-    if (!summary || summary === config.memorySummary) return;
+    if (!summary) return;
+    const signature = summary.replace(/\s+/g, ' ').trim();
+    if (signature === memorySignatureRef.current) return;
+    memorySignatureRef.current = signature;
     setConfig(prev => ({ ...prev, memorySummary: summary }));
-  }, [config.memoryEnabled, config.memorySummary, transcription]);
+  }, [config.memoryEnabled, transcription]);
 
   // Scroll console to bottom
   useEffect(() => {
@@ -364,7 +364,7 @@ const App: React.FC = () => {
             setTranscription([]);
             setStatus(CallStatus.SCREENING);
             if (config.memoryEnabled && config.memorySummary) {
-              addConsoleLine('MEMORY', `Recall: ${config.memorySummary}`, 'info');
+              addConsoleLine('SYSTEM', `Memory recall: ${config.memorySummary}`, 'info');
             }
             addConsoleLine('SYSTEM', `Incoming call from ${matchedContact?.name || callerNumber}${matchedContact?.isVip ? ' [VIP]' : ''}`, 'system');
             addConsoleLine('SYSTEM', 'AI Secretary initializing...', 'info');
