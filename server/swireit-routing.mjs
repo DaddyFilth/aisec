@@ -16,6 +16,6 @@ export const parseCallRoutingChoice = (digits, speech) => {
   const spokenValue = normalizeInput(speech);
   if (!spokenValue) return null;
   if (['1', 'one'].includes(spokenValue)) return '1';
-  if (['2', 'two', 'to'].includes(spokenValue)) return '2';
+  if (['2', 'two'].includes(spokenValue)) return '2';
   return null;
 };

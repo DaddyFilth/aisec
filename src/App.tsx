@@ -677,12 +677,12 @@ const App: React.FC = () => {
                          </p>
                          {backendStatus === 'connected' && serviceConfig && !serviceConfig.swireit.enabled && (
                            <p className="text-[10px] max-w-xs text-amber-400 uppercase tracking-widest">
-                           Swireit not configured. Set SWIREIT_PROJECT_ID, SWIREIT_API_TOKEN, and SWIREIT_SPACE_URL.
+                           Warning: Swireit not configured. Set SWIREIT_PROJECT_ID, SWIREIT_API_TOKEN, and SWIREIT_SPACE_URL.
                          </p>
                          )}
                          {backendStatus === 'connected' && serviceConfig && !serviceConfig.swireit.forwardingNumber && (
                            <p className="text-[10px] max-w-xs text-amber-400 uppercase tracking-widest">
-                             Forwarding not configured. Set SWIREIT_FORWARD_NUMBER to enable call forwarding.
+                             Warning: forwarding not configured. Set SWIREIT_FORWARD_NUMBER to enable call forwarding.
                            </p>
                          )}
                        </div>

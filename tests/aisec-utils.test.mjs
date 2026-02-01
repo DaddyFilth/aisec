@@ -38,7 +38,6 @@ describe('parseCallRoutingChoice', () => {
   it('returns choice for spoken input', () => {
     assert.equal(parseCallRoutingChoice(undefined, 'one'), '1');
     assert.equal(parseCallRoutingChoice(undefined, 'two'), '2');
-    assert.equal(parseCallRoutingChoice(undefined, 'to'), '2');
   });
 
   it('returns null for invalid input', () => {
