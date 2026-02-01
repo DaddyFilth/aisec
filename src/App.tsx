@@ -47,6 +47,7 @@ const App: React.FC = () => {
   // Keep memory summary focused by using the most recent conversational lines.
   const MAX_MEMORY_MESSAGES = 6;
   const memorySignatureRef = useRef('');
+  const memoryEnabledRef = useRef(config.memoryEnabled);
 
   // Stable callback for adding console lines
   // Empty dependency array is safe because setTranscription is a stable setter from useState
@@ -165,7 +166,10 @@ const App: React.FC = () => {
   }, [config]);
 
   useEffect(() => {
-    if (!config.memoryEnabled || !transcription.length) return;
+    memoryEnabledRef.current = config.memoryEnabled;
+  }, [config.memoryEnabled]);
+
+  const memorySnapshot = useMemo(() => {
     const memoryLines = transcription
       .filter(line => line.type === 'message')
       .slice(-MAX_MEMORY_MESSAGES);
@@ -173,12 +177,20 @@ const App: React.FC = () => {
       .map(line => line.text)
       .join(' | ')
       .trim();
-    if (!summary) return;
     const signature = summary.replace(/\s+/g, ' ').trim();
-    if (signature === memorySignatureRef.current) return;
-    memorySignatureRef.current = signature;
-    setConfig(prev => ({ ...prev, memorySummary: summary }));
-  }, [config.memoryEnabled, transcription]);
+    return { summary, signature };
+  }, [transcription]);
+
+  useEffect(() => {
+    if (!memoryEnabledRef.current || !memorySnapshot.summary) return;
+    if (memorySnapshot.signature === memorySignatureRef.current) return;
+    memorySignatureRef.current = memorySnapshot.signature;
+    setConfig(prev => (
+      prev.memorySummary === memorySnapshot.summary
+        ? prev
+        : { ...prev, memorySummary: memorySnapshot.summary }
+    ));
+  }, [memorySnapshot.signature, memorySnapshot.summary]);
 
   // Scroll console to bottom
   useEffect(() => {
