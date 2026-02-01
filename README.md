@@ -118,13 +118,13 @@ ALLOWED_ORIGINS=*
    node server/swireit-server.mjs
    ```
 
-5. **Start the development server**
+5. **Start the development server (auto-opens the UI)**
    ```bash
    npm run dev
    ```
 
-5. **Launch the UI**
-   
+6. **Launch the UI**
+    
     Open the app in your preferred client (web or Android). The UI auto-detects Swireit + AISec status from the backend.
 
 ### Minimal APK + Remote Assets
@@ -163,13 +163,13 @@ cd aisec
    ```bash
    npm run android:build:debug
    ```
-   APK location: `android/app/build/outputs/apk/debug/app-debug.apk`
+   APK location: `apk/aisec-debug.apk` (copied from `android/app/build/outputs/apk/debug/app-debug.apk`)
 
 2. **Build signed release APK for distribution:**
    ```bash
    npm run android:build
    ```
-   APK location: `android/app/build/outputs/apk/release/app-release.apk`
+   APK location: `apk/aisec-release.apk` (copied from `android/app/build/outputs/apk/release/app-release.apk`)
    
    **Note:** The release build is now automatically signed. See [Android 16 Upgrade Guide](docs/ANDROID_16_UPGRADE.md) for signing configuration.
 

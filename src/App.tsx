@@ -37,6 +37,7 @@ const App: React.FC = () => {
   const [serviceConfig, setServiceConfig] = useState<ServiceConfig | null>(null);
   const hasAutoConfiguredRef = useRef(false);
   const updateCheckRef = useRef(false);
+  const contactIdRef = useRef(0);
 
   // --- Refs for Audio & Session ---
   const wsRef = useRef<WebSocket | null>(null);
@@ -79,20 +80,34 @@ const App: React.FC = () => {
 
   // --- Persistence ---
   useEffect(() => {
-    const savedContacts = localStorage.getItem('ai_sec_contacts');
-    if (savedContacts) setContacts(JSON.parse(savedContacts));
-
-    const savedBlocked = localStorage.getItem('ai_sec_blocked');
-    if (savedBlocked) setBlockedNumbers(JSON.parse(savedBlocked));
-    
-    const savedLogs = localStorage.getItem('ai_sec_logs');
-    if (savedLogs) {
-      const parsed = JSON.parse(savedLogs);
-      setCallLogs(parsed.map((l: any) => ({ ...l, timestamp: new Date(l.timestamp) })));
-    }
-
-    const savedConfig = localStorage.getItem('ai_sec_config');
-    if (savedConfig) setConfig(JSON.parse(savedConfig));
+    /**
+     * Parse persisted localStorage state with a fallback value.
+     */
+    const parseStored = <T,>(value: string | null, fallback: T): T => {
+      if (!value) return fallback;
+      try {
+        return JSON.parse(value) as T;
+      } catch (error) {
+        console.warn('Failed to parse stored state', error);
+        return fallback;
+      }
+    };
+    setContacts(parseStored<Contact[]>(localStorage.getItem('ai_sec_contacts'), []));
+    setBlockedNumbers(parseStored<string[]>(localStorage.getItem('ai_sec_blocked'), []));
+    const savedLogs = parseStored<CallLog[]>(localStorage.getItem('ai_sec_logs'), []);
+    setCallLogs(savedLogs.map((l: CallLog) => {
+      const rawTimestamp = l.timestamp instanceof Date ? l.timestamp : new Date(l.timestamp);
+      const parsedTime = rawTimestamp.getTime();
+      if (Number.isNaN(parsedTime)) {
+        console.warn('Invalid call log timestamp detected');
+      }
+      return {
+        ...l,
+        timestamp: Number.isNaN(parsedTime) ? new Date() : rawTimestamp
+      };
+    }));
+    const savedConfig = parseStored<SecretaryConfig | null>(localStorage.getItem('ai_sec_config'), null);
+    if (savedConfig) setConfig(savedConfig);
   }, []);
 
   useEffect(() => {
@@ -238,12 +253,33 @@ const App: React.FC = () => {
     );
   }, [contacts, searchQuery]);
 
+  const normalizePhoneNumber = (value: string) => {
+    const normalized = value.replace(/[^\d+]/g, '');
+    const plusMatches = normalized.match(/\+/g) ?? [];
+    if (plusMatches.length > 1 || (plusMatches.length === 1 && !normalized.startsWith('+'))) return '';
+    return /\d/.test(normalized) ? normalized : '';
+  };
+
   const addContact = (name: string, phoneNumber: string, isVip: boolean = false) => {
     if (!name || !phoneNumber) return;
+    const normalizedPhone = normalizePhoneNumber(phoneNumber);
+    if (!normalizedPhone) return;
+    const createId = () => {
+      if (typeof crypto?.randomUUID === 'function') {
+        return crypto.randomUUID();
+      }
+      if (typeof crypto?.getRandomValues === 'function') {
+        const buffer = new Uint8Array(16);
+        crypto.getRandomValues(buffer);
+        return Array.from(buffer, byte => byte.toString(16).padStart(2, '0')).join('');
+      }
+      contactIdRef.current += 1;
+      return `contact-${Date.now()}-${contactIdRef.current}`;
+    };
     const newContact: Contact = { 
-      id: Math.random().toString(36).substring(7), 
+      id: createId(),
       name, 
-      phoneNumber,
+      phoneNumber: normalizedPhone,
       isVip
     };
     setContacts(prev => [...prev, newContact]);
@@ -258,12 +294,14 @@ const App: React.FC = () => {
   };
 
   const blockNumber = (number: string) => {
-    if (!number || blockedNumbers.includes(number)) return;
-    setBlockedNumbers(prev => [...prev, number]);
+    const normalized = normalizePhoneNumber(number);
+    if (!normalized || blockedNumbers.includes(normalized)) return;
+    setBlockedNumbers(prev => [...prev, normalized]);
   };
 
   const unblockNumber = (number: string) => {
-    setBlockedNumbers(prev => prev.filter(n => n !== number));
+    const normalized = normalizePhoneNumber(number);
+    setBlockedNumbers(prev => prev.filter(n => n !== normalized));
   };
 
   // --- Status UI Config ---

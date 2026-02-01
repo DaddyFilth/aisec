@@ -1,11 +1,17 @@
 /**
- * Normalize incoming DTMF/speech input to a comparable lowercase string.
+ * Normalize incoming DTMF/speech input to a comparable lowercase string, preserving '+' when present.
  * @param {string | number | null | undefined} value
  * @returns {string}
  */
 const normalizeInput = (value) => {
   if (value === undefined || value === null) return '';
-  return String(value).trim().toLowerCase();
+  return String(value)
+    .trim()
+    .toLowerCase()
+    // Preserve + in case a caller speaks an international prefix.
+    .replace(/[^\w\s+]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 };
 
 /**
@@ -21,7 +27,8 @@ export const parseCallRoutingChoice = (digits, speech) => {
   }
   const spokenValue = normalizeInput(speech);
   if (!spokenValue) return null;
-  if (['1', 'one'].includes(spokenValue)) return '1';
-  if (['2', 'two'].includes(spokenValue)) return '2';
+  // Match standalone digits or spoken words for routing choices.
+  if (/(?:^|[^\d])1(?:[^\d]|$)|\bone\b/.test(spokenValue)) return '1';
+  if (/(?:^|[^\d])2(?:[^\d]|$)|\b(two|to)\b/.test(spokenValue)) return '2';
   return null;
 };
