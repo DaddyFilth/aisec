@@ -163,13 +163,13 @@ cd aisec
    ```bash
    npm run android:build:debug
    ```
-   APK location: `android/app/build/outputs/apk/debug/app-debug.apk`
+   APK location: `apk/aisec-debug.apk` (copied from `android/app/build/outputs/apk/debug/app-debug.apk`)
 
 2. **Build signed release APK for distribution:**
    ```bash
    npm run android:build
    ```
-   APK location: `android/app/build/outputs/apk/release/app-release.apk`
+   APK location: `apk/aisec-release.apk` (copied from `android/app/build/outputs/apk/release/app-release.apk`)
    
    **Note:** The release build is now automatically signed. See [Android 16 Upgrade Guide](docs/ANDROID_16_UPGRADE.md) for signing configuration.
 

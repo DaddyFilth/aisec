@@ -99,12 +99,20 @@ The signed APK will be generated at:
 ```
 android/app/build/outputs/apk/release/app-release.apk
 ```
+It is also copied to:
+```
+apk/aisec-release.apk
+```
 
 ### Build Debug APK
 
 For testing purposes, you can build a debug APK:
 ```bash
 npm run android:build:debug
+```
+The debug APK will also be copied to:
+```
+apk/aisec-debug.apk
 ```
 
 ## Android 16 Behavior Changes
