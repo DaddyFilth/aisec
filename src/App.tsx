@@ -37,6 +37,7 @@ const App: React.FC = () => {
   const [serviceConfig, setServiceConfig] = useState<ServiceConfig | null>(null);
   const hasAutoConfiguredRef = useRef(false);
   const updateCheckRef = useRef(false);
+  const contactIdRef = useRef(0);
 
   // --- Refs for Audio & Session ---
   const wsRef = useRef<WebSocket | null>(null);
@@ -255,8 +256,7 @@ const App: React.FC = () => {
   const normalizePhoneNumber = (value: string) => {
     const normalized = value.replace(/[^\d+]/g, '');
     const plusMatches = normalized.match(/\+/g) ?? [];
-    if (plusMatches.length > 1) return '';
-    if (plusMatches.length === 1 && !normalized.startsWith('+')) return '';
+    if (plusMatches.length > 1 || (plusMatches.length === 1 && !normalized.startsWith('+'))) return '';
     return /\d/.test(normalized) ? normalized : '';
   };
 
@@ -264,11 +264,18 @@ const App: React.FC = () => {
     if (!name || !phoneNumber) return;
     const normalizedPhone = normalizePhoneNumber(phoneNumber);
     if (!normalizedPhone) return;
-    const createId = () => (
-      typeof crypto?.randomUUID === 'function'
-        ? crypto.randomUUID()
-        : `contact-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-    );
+    const createId = () => {
+      if (typeof crypto?.randomUUID === 'function') {
+        return crypto.randomUUID();
+      }
+      if (typeof crypto?.getRandomValues === 'function') {
+        const buffer = new Uint8Array(16);
+        crypto.getRandomValues(buffer);
+        return Array.from(buffer, byte => byte.toString(16).padStart(2, '0')).join('');
+      }
+      contactIdRef.current += 1;
+      return `contact-${Date.now()}-${contactIdRef.current}`;
+    };
     const newContact: Contact = { 
       id: createId(),
       name, 

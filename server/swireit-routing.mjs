@@ -8,6 +8,7 @@ const normalizeInput = (value) => {
   return String(value)
     .trim()
     .toLowerCase()
+    // Preserve + in case a caller speaks an international prefix.
     .replace(/[^\w\s+]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -26,6 +27,7 @@ export const parseCallRoutingChoice = (digits, speech) => {
   }
   const spokenValue = normalizeInput(speech);
   if (!spokenValue) return null;
+  // Match standalone digits or spoken words for routing choices.
   if (/(?:^|[^\d])1(?:[^\d]|$)|\bone\b/.test(spokenValue)) return '1';
   if (/(?:^|[^\d])2(?:[^\d]|$)|\b(two|to)\b/.test(spokenValue)) return '2';
   return null;
