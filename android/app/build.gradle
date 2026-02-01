@@ -66,14 +66,6 @@ repositories {
     flatDir{
         dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
     }
-    // Configure flatDir to not use metadata (flatDir doesn't support dependency metadata)
-    all { ArtifactRepository repo ->
-        if (repo instanceof FlatDirectoryArtifactRepository) {
-            repo.metadataSources {
-                artifact()
-            }
-        }
-    }
 }
 
 dependencies {
