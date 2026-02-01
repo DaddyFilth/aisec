@@ -8,7 +8,16 @@ const App: React.FC = () => {
   // --- State ---
   const [status, setStatus] = useState<CallStatus>(CallStatus.IDLE);
   const [microphonePermission, setMicrophonePermission] = useState<'granted' | 'denied' | 'prompt'>('prompt');
+  const importMetaEnv = import.meta.env as Record<string, string | undefined>;
+  const backendApiStorageKey = 'ai_sec_backend_api_url';
+  const exampleBackendApiUrl = 'https://local.host:8080';
+  const backendApiEnvUrl = process.env.BACKEND_API_URL || importMetaEnv.VITE_BACKEND_API_URL || '';
+  const backendWsEnvUrl = process.env.BACKEND_WS_URL || importMetaEnv.VITE_BACKEND_WS_URL;
+  const backendApiKeyEnv = process.env.BACKEND_API_KEY || importMetaEnv.VITE_BACKEND_API_KEY;
   const [backendStatus, setBackendStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
+  const [backendApiUrl, setBackendApiUrl] = useState(() =>
+    localStorage.getItem(backendApiStorageKey) || backendApiEnvUrl
+  );
   const [wakeStatus, setWakeStatus] = useState<'idle' | 'listening' | 'triggered' | 'error'>('idle');
   const [config, setConfig] = useState<SecretaryConfig>({
     ownerName: 'Alex',
@@ -38,13 +47,32 @@ const App: React.FC = () => {
   const hasAutoConfiguredRef = useRef(false);
   const updateCheckRef = useRef(false);
   const contactIdRef = useRef(0);
+  const previousBackendApiUrlRef = useRef(backendApiUrl);
+  const backendApiUrlInputId = 'backend-api-url';
+  const backendApiUrlHelpId = 'backend-api-url-help';
+  const backendApiUrlErrorId = 'backend-api-url-error';
 
   // --- Refs for Audio & Session ---
   const wsRef = useRef<WebSocket | null>(null);
   const wakeRecognitionRef = useRef<any>(null);
   const consoleEndRef = useRef<HTMLDivElement>(null);
-  const backendApiUrl = process.env.BACKEND_API_URL;
-  const backendWsUrl = process.env.BACKEND_WS_URL || (backendApiUrl ? backendApiUrl.replace(/^http/, 'ws') : '');
+  const parseBackendApiUrl = useCallback((value: string) => {
+    if (!value) return { valid: true, wsUrl: '' };
+    try {
+      const parsedUrl = new URL(value);
+      const isHttp = parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
+      const hasHostname = Boolean(parsedUrl.hostname);
+      return {
+        valid: isHttp && hasHostname,
+        wsUrl: parsedUrl.href.replace(/^http/, 'ws')
+      };
+    } catch {
+      return { valid: false, wsUrl: '' };
+    }
+  }, []);
+  const backendApiUrlState = useMemo(() => parseBackendApiUrl(backendApiUrl), [backendApiUrl, parseBackendApiUrl]);
+  const isBackendApiUrlValid = backendApiUrlState.valid;
+  const backendWsUrl = backendWsEnvUrl || (backendApiUrlState.valid ? backendApiUrlState.wsUrl : '');
   // Keep memory summary focused by using the most recent conversational lines.
   const MAX_MEMORY_MESSAGES = 6;
   const memorySignatureRef = useRef('');
@@ -111,7 +139,11 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!backendApiUrl) return;
+    if (!backendApiUrl || !isBackendApiUrlValid) {
+      setBackendStatus('disconnected');
+      setServiceConfig(null);
+      return;
+    }
     const checkBackend = async () => {
       setBackendStatus('connecting');
       try {
@@ -138,12 +170,12 @@ const App: React.FC = () => {
       }
     };
     checkBackend();
-  }, [backendApiUrl]);
+  }, [backendApiUrl, isBackendApiUrlValid]);
 
   useEffect(() => {
     if (updateCheckRef.current) return;
     updateCheckRef.current = true;
-    const updateUrl = process.env.AISEC_UPDATE_URL;
+    const updateUrl = process.env.AISEC_UPDATE_URL || importMetaEnv.VITE_AISEC_UPDATE_URL;
     if (!updateUrl) return;
     const checkForUpdates = async () => {
       try {
@@ -180,6 +212,22 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('ai_sec_config', JSON.stringify(config));
   }, [config]);
+
+  useEffect(() => {
+    if (previousBackendApiUrlRef.current !== backendApiUrl) {
+      hasAutoConfiguredRef.current = false;
+      previousBackendApiUrlRef.current = backendApiUrl;
+    }
+  }, [backendApiUrl]);
+
+  useEffect(() => {
+    const storedBackendUrl = localStorage.getItem(backendApiStorageKey);
+    if (backendApiUrl && storedBackendUrl !== backendApiUrl) {
+      localStorage.setItem(backendApiStorageKey, backendApiUrl);
+    } else if (!backendApiUrl && storedBackendUrl) {
+      localStorage.removeItem(backendApiStorageKey);
+    }
+  }, [backendApiUrl]);
 
   useEffect(() => {
     memoryEnabledRef.current = config.memoryEnabled;
@@ -387,7 +435,11 @@ const App: React.FC = () => {
       }
     }
     if (!backendApiUrl) {
-      addConsoleLine('ERROR', 'Backend API is not configured. Set BACKEND_API_URL.', 'system');
+      addConsoleLine('ERROR', 'Backend API is not configured. Set it in Config.', 'system');
+      return;
+    }
+    if (!isBackendApiUrlValid) {
+      addConsoleLine('ERROR', 'Backend API URL is invalid. Include http:// or https://', 'system');
       return;
     }
     if (wsRef.current) {
@@ -396,7 +448,7 @@ const App: React.FC = () => {
     }
 
     try {
-      const apiKey = process.env.BACKEND_API_KEY;
+      const apiKey = backendApiKeyEnv;
       const wsUrl = backendWsUrl ? `${backendWsUrl}/ws/call?client=ui${apiKey ? `&apiKey=${encodeURIComponent(apiKey)}` : ''}` : '';
       if (!wsUrl) {
         throw new Error('BACKEND_WS_URL is not configured.');
@@ -486,7 +538,7 @@ const App: React.FC = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-Key': process.env.BACKEND_API_KEY ?? ''
+          'X-API-Key': backendApiKeyEnv ?? ''
         },
         body: JSON.stringify({ callId: activeCallId, to: dest })
       });
@@ -508,7 +560,7 @@ const App: React.FC = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-Key': process.env.BACKEND_API_KEY ?? ''
+          'X-API-Key': backendApiKeyEnv ?? ''
         },
         body: JSON.stringify({ callId: activeCallId })
       });
@@ -530,7 +582,7 @@ const App: React.FC = () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': process.env.BACKEND_API_KEY ?? ''
+        'X-API-Key': backendApiKeyEnv ?? ''
       },
       body: JSON.stringify({ callId: activeCallId, to: dest })
     })
@@ -629,6 +681,27 @@ const App: React.FC = () => {
                   <i className="fa-solid fa-user-gear"></i> Identity Profile
                 </h3>
                 <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase" htmlFor={backendApiUrlInputId}>Backend Server URL</label>
+                    <input
+                      id={backendApiUrlInputId}
+                      type="text"
+                      value={backendApiUrl}
+                      onChange={(e) => setBackendApiUrl(e.target.value)}
+                      aria-describedby={`${backendApiUrlHelpId}${!isBackendApiUrlValid ? ` ${backendApiUrlErrorId}` : ''}`}
+                      aria-invalid={!isBackendApiUrlValid}
+                      placeholder={exampleBackendApiUrl}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                    />
+                    <p id={backendApiUrlHelpId} className="text-[9px] text-slate-500 uppercase tracking-widest">
+                      Used to check backend status and connect calls (e.g., {exampleBackendApiUrl}). Changes apply on the next connection check.
+                    </p>
+                    {!isBackendApiUrlValid && (
+                      <p id={backendApiUrlErrorId} className="text-[9px] text-amber-400 uppercase tracking-widest" role="alert" aria-live="assertive">
+                        Enter a valid URL starting with http:// or https://
+                      </p>
+                    )}
+                  </div>
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-slate-500 uppercase">Owner Identification</label>
                     <input type="text" value={config.ownerName} onChange={(e) => setConfig({...config, ownerName: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
@@ -797,7 +870,7 @@ const App: React.FC = () => {
                          <p className="text-[10px] max-w-xs text-slate-600">
                            {backendStatus === 'connected'
                              ? `Backend online. Wake word "${config.wakeName}" listening: ${wakeStatus === 'listening' ? 'on' : 'off'}.`
-                             : 'Backend offline. Configure BACKEND_API_URL to start.'}
+                             : 'Backend offline. Configure it in Config to start.'}
                          </p>
                          {backendStatus === 'connected' && serviceConfig && !serviceConfig.swireit.enabled && (
                            <p className="text-[10px] max-w-xs text-amber-400 uppercase tracking-widest">

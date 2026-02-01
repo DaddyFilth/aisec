@@ -90,8 +90,8 @@ View your app in AI Studio: https://ai.studio/apps/drive/129UWr-WSACDH_B1WBLuIyo
    
 Edit `.env.local` and add your service endpoints:
 ```env
-BACKEND_API_URL=http://localhost:8080
-BACKEND_WS_URL=ws://localhost:8080
+BACKEND_API_URL=https://local.host:8080
+BACKEND_WS_URL=wss://local.host:8080
 AISEC_UPDATE_URL=https://updates.example.com/aisec.json
 AISEC_REMOTE_ASSETS_URL=https://assets.example.com/aisec
 AISEC_API_URL=http://localhost:8080/api/ai/process
@@ -112,6 +112,11 @@ SWIREIT_TWIML_URL=your_swireit_twiml_url
 SWIREIT_VALIDATE_WEBHOOKS=true
 ALLOWED_ORIGINS=*
 ```
+
+> **Note:** The UI accepts `BACKEND_*` and `VITE_BACKEND_*` env variables. Prefer `BACKEND_*` in `.env.local` and use `VITE_BACKEND_*` only when needed by your tooling.
+
+> **Tip:** If you don't set `BACKEND_API_URL` ahead of time, you can enter it in the app's **Config** panel after launch. It is stored locally for future sessions.
+> Use `https://local.host:8080` for Swireit-backed local development (handy for local HTTPS certificates).
 
 4. **Start the backend server**
    ```bash

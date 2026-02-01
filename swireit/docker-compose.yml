@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  swireit:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+    restart: unless-stopped
+    networks:
+      - swireit-network
+
+networks:
+  swireit-network:
+    driver: bridge
