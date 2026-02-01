@@ -44,7 +44,7 @@ const SWIREIT_SPACE_URL = process.env.SWIREIT_SPACE_URL;
 const SWIREIT_CALLER_ID = process.env.SWIREIT_CALLER_ID;
 const SWIREIT_SCREENING_NUMBER = process.env.SWIREIT_SCREENING_NUMBER;
 const SWIREIT_FORWARD_NUMBER = process.env.SWIREIT_FORWARD_NUMBER;
-const SWIREIT_ROUTE_TIMEOUT = process.env.SWIREIT_ROUTE_TIMEOUT || '8';
+const SWIREIT_ROUTE_TIMEOUT_SECONDS = process.env.SWIREIT_ROUTE_TIMEOUT_SECONDS || '8';
 const OLLAMA_API_URL = process.env.OLLAMA_API_URL;
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.1';
 const ANYTHINGLLM_API_URL = process.env.ANYTHINGLLM_API_URL;
@@ -197,7 +197,7 @@ app.post('/swireit/voice', validateSwireitRequest, async (req, res) => {
     language: 'en-US',
     hints: 'one, two, 1, 2',
     numDigits: 1,
-    timeout: SWIREIT_ROUTE_TIMEOUT
+    timeout: SWIREIT_ROUTE_TIMEOUT_SECONDS
   }).say(`Hello. Say or press 1 for AI screening, or 2 to forward${forwardMessage}.`);
   response.say('We did not receive a response. Goodbye.');
   response.hangup();
