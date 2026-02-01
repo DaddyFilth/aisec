@@ -84,10 +84,6 @@ The build also copies it to:
 ```
 apk/aisec-debug.apk
 ```
-The build script also copies it to:
-```
-apk/aisec-debug.apk
-```
 
 ### 3. Build Release APK (for distribution)
 
@@ -121,10 +117,6 @@ The signed APK will be at:
 android/app/build/outputs/apk/release/app-release.apk
 ```
 The build also copies it to:
-```
-apk/aisec-release.apk
-```
-The build script also copies it to:
 ```
 apk/aisec-release.apk
 ```
