@@ -29,7 +29,7 @@
     "ml:train:transcripts": "node server/transcript-ingestion.mjs --model-out ./data/transcript-model.json"
   },
   "dependencies": {
-    "@capacitor/android": "^7.4.5",
+    "@capacitor/android": "^8.0.2",
     "@capacitor/cli": "^7.4.5",
     "@capacitor/core": "^7.4.5",
     "cors": "^2.8.6",
