@@ -3,7 +3,7 @@
 
 # AI Secretary 🤖📞
 
-**An intelligent call screening assistant powered by Swireit, AnythingLLM, and Ollama**
+**A softswitch, a PBX, an AI IVR, and a call router using Asterisk**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue.svg)](https://www.typescriptlang.org/)
@@ -17,11 +17,30 @@
 
 ## 📖 Overview
 
-AI Secretary is an intelligent call screening application that uses Swireit Programmable Voice, AnythingLLM, and Ollama to interact with callers, ask for their name and purpose, and provide you with the information you need to decide whether to:
+AI Secretary is a 100% self-hosted softswitch + PBX with AI IVR routing built around Asterisk. It connects SIP/WebRTC callers, transcribes speech with Whisper, lets Ollama decide the next step, and then routes the call to the right action so you can:
 - **Accept the call** and connect directly
 - **Send to voicemail** to record a message
 - **Forward the call** to another number
 - **Block** unwanted callers automatically
+
+### 🧱 Core Architecture (100% free & self-hosted)
+
+```
+Caller (SIP/WebRTC)
+        ↓
+SIP Server (Asterisk / FreeSWITCH)
+        ↓
+Media (RTP)
+        ↓
+STT (Whisper)
+        ↓
+Ollama (Decision Engine)
+        ↓
+Action Router
+├── Forward (SIP)
+├── Voicemail (Record)
+└── Ask Question (TTS)
+```
 
 ## ✨ Features
 

@@ -1,7 +1,7 @@
 {
   "name": "swireit",
   "version": "1.0.0",
-  "description": "Free real-time call handling platform with AI agent tools",
+  "description": "A softswitch, a PBX, an AI IVR, and a call router using Asterisk.",
   "main": "dist/server.js",
   "type": "module",
   "scripts": {
